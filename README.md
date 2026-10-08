@@ -59,7 +59,7 @@ The backend is strictly layered: **route → controller → service → ORM**.
 
 Every JSON response uses one envelope, `{ status, data, meta?, errors? }`, built by `ok()` / `fail()`.
 
-**Process model.** The API and the workers are one codebase with two entry points: `src/index.ts` (HTTP + sockets) and `src/worker.ts` (BullMQ). In development `index.ts` imports the worker, so one `pnpm --filter server dev` does both. In production the API process does not start workers; run `worker` as its own process. Shutdown is ordered so nothing is lost: stop accepting connections, close the socket server, let in-flight requests finish, close the workers, close the cache connection, with a 10-second forced exit. `GET /health` reports Postgres and Redis separately and answers `503` only when Postgres is down (Redis is reported, not fatal).
+**Process model.** The API and the workers are one codebase with two entry points: `src/index.ts` (HTTP + sockets) and `src/worker.ts` (BullMQ). In development `index.ts` imports the worker, so one `pnpm --filter server dev` does both. In production run `worker` as its own process, or set `RUN_WORKERS_IN_API=true` to let the API register and run the jobs itself, which is what a single free web service needs. Shutdown is ordered so nothing is lost: stop accepting connections, close the socket server, let in-flight requests finish, close the workers, close the cache connection, with a 10-second forced exit. `GET /health` reports Postgres and Redis separately and answers `503` only when Postgres is down (Redis is reported, not fatal).
 
 ## 🔄 Key Flows
 
@@ -440,6 +440,7 @@ Open `http://localhost:3000`. The homepage starts a private demo workspace on it
 | `GMAIL_OAUTH_SETUP` | `true` switches the authorise routes on in production while re-authorising | No (default `false`) |
 | `EMAIL_FROM` | `Name <address>`; the address must be the authorising Gmail account | For email |
 | `TRUSTED_PROXY_CIDRS` | Proxies whose client-IP headers may be trusted (`127.0.0.1/32` on Render); empty if directly exposed | Recommended behind a proxy |
+| `RUN_WORKERS_IN_API` | `true` runs the background jobs inside the API in production (one-service deploys) | No (default `false`) |
 | `ENABLE_QUEUE_DASHBOARD`, `QUEUE_DASHBOARD_USER`, `QUEUE_DASHBOARD_PASSWORD` | Bull Board in production and its basic-auth credentials | No |
 | `DEBUG_IP_ENDPOINT` | `true` exposes `/debug-ip` for checking proxy trust; leave off normally | No |
 | `DEMO_TTL_HOURS`, `DEMO_SESSIONS_PER_HOUR` | Demo workspace lifetime (24) and sessions per IP per hour (10) | No |
@@ -520,34 +521,6 @@ docker compose down       # stop
 **Why a custom rate limiter?** The requirements (per-IP and per-account login limits, a lock-out attackers cannot weaponise, a dual-bucket pre-auth limit, graceful behaviour when Redis is down) are not met by a stock per-IP counter. Atomicity comes from Lua; availability comes from the breaker and the memory fallback.
 
 **Why shared Zod schemas?** Every REST body and every socket event is defined once, so the server's validation and the clients' types cannot drift.
-
-## ⚡ Performance Considerations
-
-Measured with `pnpm --filter server load`: 100 visitors each sending 10 messages one second apart, 5 agents in the workspace receiving everything, one API instance, a local PostgreSQL 16, Linux x64 / Node 22:
-
-| Sent | Acked | Errors | Deliveries to agents | p50 | p95 | p99 |
-|---|---|---|---|---|---|---|
-| 1,000 | 1,000 | 0 | 5,000 (1,000 × 5) | 15 ms | 92 ms | 397 ms |
-
-The offered load was about 58 messages a second (one per visitor per second), so that is the sustained rate of this run, not the ceiling. **Latency depends on where the database is.** Against a remote database every send costs several round trips (about 280 ms each from a distant region), so a send reads in seconds; run the API in the same region as the database and it reads in tens of milliseconds. The implemented optimisations:
-
-- One transaction and one row lock per message; assignment, resolve and reopen are single statements
-- Composite indexes matching the inbox's filters and sort; expression indexes for case-insensitive uniqueness
-- Dashboard numbers computed in one SQL round trip with `COUNT(*) FILTER`, cached for 30 s
-- Cached widget configuration (5 minutes, invalidated when settings change) and a 60-second session-active cache in front of the session lookup
-- WebSocket-only transport; socket events patch the client cache instead of refetching
-- A 1.9 kB loader that waits for `window.load`, so the widget never delays the host page
-- Parallel independent queries (`Promise.all`) on hot paths; email jobs rate-limited to 2 a second
-
-## 🔮 Future Improvements
-
-Not implemented; listed as realistic next steps.
-
-- An **allowed-origins list per workspace**, so a script that spoofs a visitor cannot choose the page link in an offline-reply email
-- **One custom domain** for the web app and the API (or a proxy), so login cookies are first-party on Safari and iPhone
-- A **verified sending domain** and an email provider, to lift the one-account, ~500-a-day limit of Gmail
-- Hosted load numbers: the figures above are from a local single instance
-- Not in version 1: file and image attachments, bot or AI replies, other channels, mobile apps, voice and video, departments and routing rules, chat ratings, more than one language, and billing
 
 ## 👨‍💻 Author
 

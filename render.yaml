@@ -1,60 +1,50 @@
-# Render blueprint: the API (web service), the job worker, and the two Redis instances.
-# Secrets are marked `sync: false`: Render asks for them on first deploy. Postgres is Neon (not hosted here):
-# use the POOLED connection string for DATABASE_URL, and run migrations from a machine with the DIRECT one
-# (`DATABASE_URL=<direct> pnpm --filter server db:deploy`) before each deploy that changes the schema.
-# Free instances sleep and drop sockets — use at least the Starter plan for the API.
+# Render blueprint: the API on ONE free web service. The background jobs (email, cleanup) run inside the API process
+# (RUN_WORKERS_IN_API=true), because the free plan has no separate worker.
+# Postgres is Neon and Redis is Redis Cloud (two free databases), so neither is created here.
+# Secrets are marked `sync: false`: Render asks for them on first deploy.
+#
+# Free plan: the service sleeps after 15 minutes without traffic and wakes in about a minute on the next request or
+# WebSocket connection. The widget and inbox reconnect and catch up on their own.
+#
+# Migrations are run from your machine with the DIRECT Neon string before a deploy that changes the schema:
+#   DATABASE_URL=<direct> pnpm --filter server db:deploy
+# The service itself gets the POOLED connection string.
 services:
   - type: web
     name: relaydesk-api
     runtime: node
-    plan: starter
+    plan: free
+    region: ohio   # next to Neon us-east-2
     buildCommand: pnpm install --frozen-lockfile && pnpm --filter @repo/types build && pnpm --filter server build
     startCommand: pnpm --filter server start
     healthCheckPath: /health
-    autoDeployTrigger: checksPass
-    envVars: &server-env
+    autoDeployTrigger: commit
+    envVars:
       - { key: NODE_ENV, value: production }
       - { key: NODE_VERSION, value: 22 }
-      - { key: DATABASE_URL, sync: false }
+      - { key: RUN_WORKERS_IN_API, value: "true" }
+      - { key: DATABASE_URL, sync: false }   # Neon, the POOLED string
       - { key: JWT_SECRET, generateValue: true }
       - { key: JWT_REFRESH_SECRET, generateValue: true }
       - { key: VISITOR_TOKEN_SECRET, generateValue: true }
       - { key: CORS_ORIGIN, sync: false }   # the web and widget origins, exactly, comma-separated
       - { key: WEB_ORIGIN, sync: false }
       - { key: WIDGET_ORIGIN, sync: false }
+      - { key: GOOGLE_CLIENT_ID, sync: false }
       - { key: GMAIL_CLIENT_ID, sync: false }
       - { key: GMAIL_CLIENT_SECRET, sync: false }
-      - { key: GMAIL_REDIRECT_URI, sync: false }   # https://<the API's address>/api/auth/gmail/callback, registered on the OAuth client
+      - { key: GMAIL_REDIRECT_URI, sync: false }   # https://<this API's address>/api/auth/gmail/callback, registered on the OAuth client
       - { key: GMAIL_OAUTH_SETUP, value: "false" }   # "true" only while re-authorising
       - { key: GMAIL_REFRESH_TOKEN, sync: false }
       - { key: EMAIL_FROM, sync: false }
       - { key: TRUSTED_PROXY_CIDRS, value: 127.0.0.1/32 }   # verify once with DEBUG_IP_ENDPOINT, then remove that variable
       - { key: ENABLE_QUEUE_DASHBOARD, value: "false" }
-      - { key: REDIS_HOST, fromService: { type: keyvalue, name: relaydesk-queue, property: host } }
-      - { key: REDIS_PORT, fromService: { type: keyvalue, name: relaydesk-queue, property: port } }
-      - { key: CACHE_REDIS_HOST, fromService: { type: keyvalue, name: relaydesk-cache, property: host } }
-      - { key: CACHE_REDIS_PORT, fromService: { type: keyvalue, name: relaydesk-cache, property: port } }
-
-  # The same code, the other entrypoint: in production the API process does NOT run the workers.
-  - type: worker
-    name: relaydesk-worker
-    runtime: node
-    plan: starter
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @repo/types build && pnpm --filter server build
-    startCommand: pnpm --filter server start:worker
-    autoDeployTrigger: checksPass
-    envVars: *server-env
-
-  # BullMQ, the rate limiter, the Socket.IO adapter and presence: must never evict.
-  - type: keyvalue
-    name: relaydesk-queue
-    plan: starter
-    maxmemoryPolicy: noeviction
-    ipAllowList: []
-
-  # The response cache: evicts when full.
-  - type: keyvalue
-    name: relaydesk-cache
-    plan: starter
-    maxmemoryPolicy: volatile-lru
-    ipAllowList: []
+      # Redis Cloud: the queue database must use the `noeviction` policy.
+      - { key: REDIS_HOST, sync: false }
+      - { key: REDIS_PORT, sync: false }
+      - { key: REDIS_USERNAME, sync: false }
+      - { key: REDIS_PASSWORD, sync: false }
+      - { key: CACHE_REDIS_HOST, sync: false }
+      - { key: CACHE_REDIS_PORT, sync: false }
+      - { key: CACHE_REDIS_USERNAME, sync: false }
+      - { key: CACHE_REDIS_PASSWORD, sync: false }

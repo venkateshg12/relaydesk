@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "shadcn": {
+      "command": "apps/web/node_modules/.bin/shadcn",
+      "args": [
+        "mcp"
+      ]
+    },
+    "playwright": {
+      "command": "apps/e2e/node_modules/.bin/playwright-mcp",
+      "args": [
+        "--browser",
+        "chromium"
+      ]
+    },
+    "next-devtools": {
+      "command": "apps/web/node_modules/.bin/next-devtools-mcp",
+      "args": []
+    },
+    "prisma": {
+      "type": "http",
+      "url": "https://mcp.prisma.io/mcp"
+    }
+  }
+}

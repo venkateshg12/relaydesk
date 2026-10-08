@@ -13,6 +13,7 @@ import {
     PORT,
     QUEUE_DASHBOARD_PASSWORD,
     QUEUE_DASHBOARD_USER,
+    RUN_WORKERS_IN_API,
     TRUSTED_PROXY_CIDRS
 } from "./constants/env.js";
 import { pool } from "./config/db.js";
@@ -191,8 +192,9 @@ async function main() {
     // Fail at boot, not on the first request, if Postgres is unreachable.
     await pool.query("SELECT 1");
 
-    // In development, run workers in-process. Standalone workers run via `pnpm worker`.
-    if (NODE_ENV !== "production") {
+    // In development, run workers in-process. In production they are a standalone process (`pnpm start:worker`),
+    // unless RUN_WORKERS_IN_API=true: one web service then registers the repeating jobs and runs everything.
+    if (NODE_ENV !== "production" || RUN_WORKERS_IN_API === "true") {
         await startWorker();
     }
 

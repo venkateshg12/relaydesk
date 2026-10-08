@@ -78,6 +78,10 @@ export const CACHE_REDIS_HOST = getEnv("CACHE_REDIS_HOST", REDIS_HOST);
 export const CACHE_REDIS_PORT = getEnv("CACHE_REDIS_PORT", "6382");
 export const CACHE_REDIS_USERNAME = getEnv("CACHE_REDIS_USERNAME", REDIS_USERNAME);
 export const CACHE_REDIS_PASSWORD = getEnv("CACHE_REDIS_PASSWORD", REDIS_PASSWORD);
+// Workers always run inside the API in development. In production they are a separate process (`pnpm start:worker`),
+// unless this is "true": then the API registers the repeating jobs and runs them itself, so one web service is enough
+// (a free hosting plan has no room for a second process).
+export const RUN_WORKERS_IN_API = getEnv("RUN_WORKERS_IN_API", "false");
 export const CACHE_ENABLED = getEnv("CACHE_ENABLED", "true");
 
 export const DEMO_TTL_HOURS = getEnv("DEMO_TTL_HOURS", "24");
