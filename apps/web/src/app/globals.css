@@ -1,0 +1,344 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Design tokens come from docs/DESIGN_SYSTEM.md — change them there first, then here.
+   "Ink and signal": ink (near-black) does all static work, signal blue appears only on live states
+   (unread, arrival, typing, seen, focus), and the note yellow marks team-only content. */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* `layout.tsx` loads the fonts into these variables via next/font. */
+  --font-sans: var(--font-instrument-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-instrument-sans);
+  /* Display face for public headlines, page titles and the wordmark (DESIGN_SYSTEM §13). Archivo at its
+     widest (wdth 125) and heaviest gives the dense, stamped block the Discord reference gets from Ginto Nord,
+     in sentence case. */
+  --font-display: var(--font-archivo);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* RelayDesk semantic colours (DESIGN_SYSTEM §4): live signals, internal notes, presence, status. */
+  --color-signal: var(--signal);
+  --color-signal-soft: var(--signal-soft);
+  --color-note: var(--note);
+  --color-note-border: var(--note-border);
+  --color-note-foreground: var(--note-foreground);
+  --color-presence-online: var(--presence-online);
+  --color-presence-away: var(--presence-away);
+  --color-presence-offline: var(--presence-offline);
+  --color-status-unassigned: var(--status-unassigned);
+  --color-status-unassigned-soft: var(--status-unassigned-soft);
+  --color-status-mine: var(--status-mine);
+  --color-status-mine-soft: var(--status-mine-soft);
+  --color-status-others: var(--status-others);
+  --color-status-others-soft: var(--status-others-soft);
+  --color-status-resolved: var(--status-resolved);
+  --color-status-resolved-soft: var(--status-resolved-soft);
+  /* The stage (DESIGN_SYSTEM §13): the deep indigo night behind the public hero, feature frames, auth panel
+     and footer. It stays dark in both themes, like the Discord page it comes from. */
+  --color-stage: var(--stage);
+  --color-stage-raised: var(--stage-raised);
+  --color-stage-foreground: var(--stage-foreground);
+  --color-stage-muted: var(--stage-muted);
+  --color-stage-line: var(--stage-line);
+  /* Kippo's rationed accent: one warm highlight on the stage (the key in the install snippet). */
+  --color-stage-accent: var(--stage-accent);
+  /* Public-page surfaces: Turn.io's pastel rooms and Bumble's honey band. Decoration, never a control. */
+  --color-honey: var(--honey);
+  --color-pastel-lilac: var(--pastel-lilac);
+  --color-pastel-sky: var(--pastel-sky);
+  --color-pastel-mint: var(--pastel-mint);
+  --color-pastel-peach: var(--pastel-peach);
+  /* Avatar initials: one of six muted backgrounds picked by a hash of the id (DESIGN_SYSTEM §4.1). */
+  --color-avatar-1: var(--avatar-1);
+  --color-avatar-2: var(--avatar-2);
+  --color-avatar-3: var(--avatar-3);
+  --color-avatar-4: var(--avatar-4);
+  --color-avatar-5: var(--avatar-5);
+  --color-avatar-6: var(--avatar-6);
+
+  /* Radius signals hierarchy (DESIGN_SYSTEM §6): controls 8, panels 12, dialogs 16, bubbles 20. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-4xl: 24px;
+}
+
+@theme {
+  /* Shadows only for things that float (DESIGN_SYSTEM §6); panels use a hairline border instead. */
+  --shadow-float: 0 1px 2px rgb(23 24 29 / 0.06), 0 8px 24px rgb(23 24 29 / 0.1);
+  /* Bumble's one whisper shadow, for the soft cards on the honey band only. */
+  --shadow-whisper: 0 1px 8px rgb(23 24 29 / 0.12);
+  --shadow-widget: 0 2px 6px rgb(23 24 29 / 0.08), 0 16px 48px rgb(23 24 29 / 0.18);
+
+  /* Motion (DESIGN_SYSTEM §10): decelerate in, accelerate out, nothing longer than 320ms except the
+     arrival fade. These override Tailwind's default `ease-out` / `ease-in` on purpose. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
+  --animate-arrival: arrival 1.2s var(--ease-standard);
+  --animate-pop: pop 160ms var(--ease-out);
+  /* The homepage word strip (Discord's band). Paused on hover and stopped under reduced motion. */
+  --animate-marquee: marquee 40s linear infinite;
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes typing-dot {
+    0%,
+    100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /* A row or number that just changed: a signal tint that fades back to the surface. */
+  @keyframes arrival {
+    from {
+      background-color: var(--signal-soft);
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+
+  @keyframes pop {
+    from {
+      transform: scale(0.6);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}
+
+:root {
+  --background: #f3f4f6;
+  --foreground: #17181d;
+  --card: #ffffff;
+  --card-foreground: #17181d;
+  --popover: #ffffff;
+  --popover-foreground: #17181d;
+  --primary: #17181d;
+  --primary-foreground: #ffffff;
+  --secondary: #eeeff2;
+  --secondary-foreground: #17181d;
+  --muted: #eeeff2;
+  --muted-foreground: #5b5f6b;
+  --accent: #eeeff2;
+  --accent-foreground: #17181d;
+  --destructive: #c42b3c;
+  /* Hairlines are decorative; `--input` outlines controls, so it meets the 3:1 UI contrast rule. */
+  --border: #dfe1e6;
+  --input: #8c909b;
+  --ring: #2450e6;
+  --signal: #2450e6;
+  --signal-soft: #ebf0ff;
+  --note: #fff4c2;
+  --note-border: #e3d27e;
+  --note-foreground: #5c4400;
+  --presence-online: #16a34a;
+  --presence-away: #b7791f;
+  --presence-offline: #8c909b;
+  --status-unassigned: #9a4a12;
+  --status-unassigned-soft: #fdebdd;
+  --status-mine: #1d3fb8;
+  --status-mine-soft: #ebf0ff;
+  --status-others: #4a4e59;
+  --status-others-soft: #eeeff2;
+  --status-resolved: #166534;
+  --status-resolved-soft: #e3f5e8;
+  --avatar-1: #e6e0f8;
+  --avatar-2: #ddeff6;
+  --avatar-3: #e3f5e8;
+  --avatar-4: #fdebdd;
+  --avatar-5: #f8e0ea;
+  --avatar-6: #eeeff2;
+  --chart-1: #2450e6;
+  --chart-2: #16a34a;
+  --chart-3: #b7791f;
+  --chart-4: #7c5cd6;
+  --chart-5: #8c909b;
+  --stage: #0b1030;
+  --stage-raised: #151b47;
+  --stage-foreground: #f2f4ff;
+  --stage-muted: #aeb5e0;
+  --stage-line: rgb(242 244 255 / 0.14);
+  --stage-accent: #ffd95a;
+  --honey: #ffd95a;
+  --pastel-lilac: #e6e0f8;
+  --pastel-sky: #ddeff6;
+  --pastel-mint: #e3f5e8;
+  --pastel-peach: #fdebdd;
+  --radius: 0.5rem;
+  --sidebar: #f3f4f6;
+  --sidebar-foreground: #17181d;
+  --sidebar-primary: #17181d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eeeff2;
+  --sidebar-accent-foreground: #17181d;
+  --sidebar-border: #dfe1e6;
+  --sidebar-ring: #2450e6;
+}
+
+.dark {
+  --background: #0f1115;
+  --foreground: #edeef2;
+  --card: #16181d;
+  --card-foreground: #edeef2;
+  --popover: #16181d;
+  --popover-foreground: #edeef2;
+  --primary: #edeef2;
+  --primary-foreground: #0f1115;
+  --secondary: #23262d;
+  --secondary-foreground: #edeef2;
+  --muted: #23262d;
+  --muted-foreground: #a0a4af;
+  --accent: #23262d;
+  --accent-foreground: #edeef2;
+  --destructive: #f0707d;
+  --border: #2b2e36;
+  --input: #6e727e;
+  --ring: #8ea6ff;
+  --signal: #8ea6ff;
+  --signal-soft: #1e2747;
+  --note: #2a2618;
+  --note-border: #4d4320;
+  --note-foreground: #e8c766;
+  --presence-online: #22c55e;
+  --presence-away: #e0a63a;
+  --presence-offline: #6e727e;
+  --status-unassigned: #f2b48a;
+  --status-unassigned-soft: #3a2616;
+  --status-mine: #b4c4ff;
+  --status-mine-soft: #1e2747;
+  --status-others: #c3c6cf;
+  --status-others-soft: #23262d;
+  --status-resolved: #86d9a3;
+  --status-resolved-soft: #15301f;
+  --avatar-1: #2a2540;
+  --avatar-2: #1d3038;
+  --avatar-3: #15301f;
+  --avatar-4: #3a2616;
+  --avatar-5: #3a1f2b;
+  --avatar-6: #23262d;
+  --chart-1: #8ea6ff;
+  --chart-2: #22c55e;
+  --chart-3: #e0a63a;
+  --chart-4: #b49cf5;
+  --chart-5: #6e727e;
+  --stage: #0b1030;
+  --stage-raised: #151b47;
+  --stage-foreground: #f2f4ff;
+  --stage-muted: #aeb5e0;
+  --stage-line: rgb(242 244 255 / 0.14);
+  --stage-accent: #ffd95a;
+  --honey: #2a2414;
+  --pastel-lilac: #241f3a;
+  --pastel-sky: #172b33;
+  --pastel-mint: #152a1d;
+  --pastel-peach: #33231a;
+  --sidebar: #0f1115;
+  --sidebar-foreground: #edeef2;
+  --sidebar-primary: #edeef2;
+  --sidebar-primary-foreground: #0f1115;
+  --sidebar-accent: #23262d;
+  --sidebar-accent-foreground: #edeef2;
+  --sidebar-border: #2b2e36;
+  --sidebar-ring: #8ea6ff;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* Tailwind v4 dropped the browser-default pointer on buttons. Every clickable control gets it back here, once,
+     instead of `cursor-pointer` on each one — Radix tabs, toggles and menu triggers are buttons too. A
+     utility such as `cursor-not-allowed` still wins, because base styles sit below utilities. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  label[for],
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  /* Same-page links (the homepage nav) glide; reduced motion turns it off below. */
+  html:focus-within {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Reduced motion (DESIGN_SYSTEM §10.1): remove movement everywhere; components that convey state
+   through motion (the typing dots) also render a static text alternative. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The expanded cut of the display face (DESIGN_SYSTEM §13). Used with `font-display` on headlines only. */
+@utility font-expanded {
+  font-stretch: 125%;
+  font-variation-settings: "wdth" 125;
+}
