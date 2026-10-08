@@ -1,0 +1,60 @@
+# Render blueprint: the API (web service), the job worker, and the two Redis instances.
+# Secrets are marked `sync: false`: Render asks for them on first deploy. Postgres is Neon (not hosted here):
+# use the POOLED connection string for DATABASE_URL, and run migrations from a machine with the DIRECT one
+# (`DATABASE_URL=<direct> pnpm --filter server db:deploy`) before each deploy that changes the schema.
+# Free instances sleep and drop sockets — use at least the Starter plan for the API.
+services:
+  - type: web
+    name: relaydesk-api
+    runtime: node
+    plan: starter
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @repo/types build && pnpm --filter server build
+    startCommand: pnpm --filter server start
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars: &server-env
+      - { key: NODE_ENV, value: production }
+      - { key: NODE_VERSION, value: 22 }
+      - { key: DATABASE_URL, sync: false }
+      - { key: JWT_SECRET, generateValue: true }
+      - { key: JWT_REFRESH_SECRET, generateValue: true }
+      - { key: VISITOR_TOKEN_SECRET, generateValue: true }
+      - { key: CORS_ORIGIN, sync: false }   # the web and widget origins, exactly, comma-separated
+      - { key: WEB_ORIGIN, sync: false }
+      - { key: WIDGET_ORIGIN, sync: false }
+      - { key: GMAIL_CLIENT_ID, sync: false }
+      - { key: GMAIL_CLIENT_SECRET, sync: false }
+      - { key: GMAIL_REDIRECT_URI, sync: false }   # https://<the API's address>/api/auth/gmail/callback, registered on the OAuth client
+      - { key: GMAIL_OAUTH_SETUP, value: "false" }   # "true" only while re-authorising
+      - { key: GMAIL_REFRESH_TOKEN, sync: false }
+      - { key: EMAIL_FROM, sync: false }
+      - { key: TRUSTED_PROXY_CIDRS, value: 127.0.0.1/32 }   # verify once with DEBUG_IP_ENDPOINT, then remove that variable
+      - { key: ENABLE_QUEUE_DASHBOARD, value: "false" }
+      - { key: REDIS_HOST, fromService: { type: keyvalue, name: relaydesk-queue, property: host } }
+      - { key: REDIS_PORT, fromService: { type: keyvalue, name: relaydesk-queue, property: port } }
+      - { key: CACHE_REDIS_HOST, fromService: { type: keyvalue, name: relaydesk-cache, property: host } }
+      - { key: CACHE_REDIS_PORT, fromService: { type: keyvalue, name: relaydesk-cache, property: port } }
+
+  # The same code, the other entrypoint: in production the API process does NOT run the workers.
+  - type: worker
+    name: relaydesk-worker
+    runtime: node
+    plan: starter
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @repo/types build && pnpm --filter server build
+    startCommand: pnpm --filter server start:worker
+    autoDeployTrigger: checksPass
+    envVars: *server-env
+
+  # BullMQ, the rate limiter, the Socket.IO adapter and presence: must never evict.
+  - type: keyvalue
+    name: relaydesk-queue
+    plan: starter
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+  # The response cache: evicts when full.
+  - type: keyvalue
+    name: relaydesk-cache
+    plan: starter
+    maxmemoryPolicy: volatile-lru
+    ipAllowList: []

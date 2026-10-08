@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RelayDesk — Realtime Chat Test (Phase 07)</title>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; color: #111; }
+    #connection-bar { display: none; padding: 6px 12px; font-size: 12px; text-align: center; border-radius: 6px; margin-bottom: 12px; }
+    #connection-bar.reconnecting { display: block; background: #fef3c7; color: #92400e; }
+    #connection-bar.online { display: block; background: #d1fae5; color: #065f46; }
+    #messages { border: 1px solid #e5e7eb; border-radius: 8px; height: 320px; overflow-y: scroll; padding: 12px; margin-bottom: 10px; background: #f9fafb; }
+    .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; line-height: 1.4; }
+    .msg.visitor { background: #e0e7ff; color: #1e1b4b; margin-left: auto; text-align: right; }
+    .msg.agent { background: #fff; border: 1px solid #e5e7eb; color: #111; }
+    .msg .meta { font-size: 10px; color: #6b7280; margin-top: 4px; }
+    .input-row { display: flex; gap: 8px; }
+    input[type="text"] { flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+    button { padding: 8px 14px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status { font-size: 12px; color: #4b5563; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    #typing { font-size: 11px; color: #6b7280; font-style: italic; height: 16px; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <h2>Realtime Chat Test (Phase 07)</h2>
+
+  <div id="connection-bar"></div>
+
+  <div class="status">
+    <span id="status-text">Connecting...</span>
+    <span id="presence-badge" style="font-weight: 500;"></span>
+  </div>
+
+  <div style="margin-bottom: 12px; display: flex; gap: 6px;">
+    <input type="text" id="pkInput" placeholder="Public key" value="rd_pk_test_sample_key_123" style="width: 250px;" />
+    <button onclick="initSession()">Init</button>
+    <button onclick="resetSession()" style="background: #ef4444;">Reset</button>
+  </div>
+
+  <div id="messages"></div>
+  <div id="typing"></div>
+
+  <form id="sendForm" class="input-row" onsubmit="handleSend(event)">
+    <input type="text" id="bodyInput" placeholder="Type a message..." required oninput="handleTypingInput()" />
+    <button type="submit" id="sendBtn">Send</button>
+  </form>
+
+  <script>
+    const API_BASE = "http://localhost:4000";
+    let token = localStorage.getItem("chat_test_visitor_token");
+    let socket = null;
+    let lastSeq = 0;
+    let typingTimer = null;
+    let lastTypingSent = 0;
+    let conversationId = null;
+
+    async function initSession() {
+      const pk = document.getElementById("pkInput").value.trim();
+      document.getElementById("status-text").textContent = "Initializing session...";
+      try {
+        const res = await fetch(`${API_BASE}/widget/session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ publicKey: pk, visitorToken: token || undefined }),
+        });
+        const json = await res.json();
+        if (json.status !== "success") {
+          throw new Error(json.errors?.[0]?.message || "Failed to init session");
+        }
+        token = json.data.token;
+        localStorage.setItem("chat_test_visitor_token", token);
+        document.getElementById("status-text").textContent = `Visitor #${json.data.visitor.displayNo} (${json.data.widget.workspaceName})`;
+
+        // Connect Socket.IO client
+        setupSocket();
+      } catch (err) {
+        document.getElementById("status-text").textContent = "Error: " + err.message;
+      }
+    }
+
+    function setupSocket() {
+      if (socket) {
+        socket.disconnect();
+      }
+
+      socket = io(API_BASE, {
+        auth: { token },
+        transports: ["websocket", "polling"],
+      });
+
+      const bar = document.getElementById("connection-bar");
+
+      socket.on("connect", () => {
+        bar.className = "online";
+        bar.textContent = "Back online · Sockets connected";
+        setTimeout(() => { bar.style.display = "none"; }, 2000);
+
+        // Catch-up sync if we had an ongoing conversation
+        if (conversationId && lastSeq > 0) {
+          socket.emit("sync", {
+            conversations: [{ id: conversationId, lastSeq }]
+          }, (res) => {
+            if (res?.ok && res.messages?.[conversationId]) {
+              res.messages[conversationId].forEach(appendMessage);
+            }
+          });
+        }
+      });
+
+      socket.on("disconnect", () => {
+        bar.style.display = "block";
+        bar.className = "reconnecting";
+        bar.textContent = "Reconnecting to realtime server…";
+      });
+
+      socket.on("message:new", (msg) => {
+        conversationId = msg.conversationId;
+        appendMessage(msg);
+
+        // Send seen ack for agent messages
+        if (msg.senderType === "agent" && msg.seq) {
+          socket.emit("message:seen", { conversationId: msg.conversationId, seq: msg.seq });
+        }
+      });
+
+      socket.on("typing", (data) => {
+        const el = document.getElementById("typing");
+        if (data.isTyping) {
+          el.textContent = `${data.who} is typing…`;
+          clearTimeout(typingTimer);
+          typingTimer = setTimeout(() => { el.textContent = ""; }, 3000);
+        } else {
+          el.textContent = "";
+        }
+      });
+
+      socket.on("presence:update", (data) => {
+        const badge = document.getElementById("presence-badge");
+        if (data.workspaceOnline) {
+          badge.textContent = "● Agents online";
+          badge.style.color = "#059669";
+        } else {
+          badge.textContent = "○ Currently offline";
+          badge.style.color = "#6b7280";
+        }
+      });
+    }
+
+    function appendMessage(msg) {
+      if (msg.seq && msg.seq <= lastSeq) return;
+      if (msg.seq) lastSeq = msg.seq;
+
+      const container = document.getElementById("messages");
+      const div = document.createElement("div");
+      div.className = `msg ${msg.senderType}`;
+      div.id = "msg_" + (msg.id || msg.clientMessageId);
+
+      const bodyDiv = document.createElement("div");
+      bodyDiv.textContent = msg.body;
+      div.appendChild(bodyDiv);
+
+      const metaDiv = document.createElement("div");
+      metaDiv.className = "meta";
+      metaDiv.textContent = `${msg.senderType === "visitor" ? "You" : "Agent"} · #${msg.seq || "pending"} ${new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      div.appendChild(metaDiv);
+
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function handleTypingInput() {
+      if (!socket || !socket.connected || !conversationId) return;
+      const now = Date.now();
+      if (now - lastTypingSent > 2000) {
+        lastTypingSent = now;
+        socket.emit("typing", { conversationId, isTyping: true });
+      }
+    }
+
+    async function handleSend(e) {
+      e.preventDefault();
+      const input = document.getElementById("bodyInput");
+      const body = input.value.trim();
+      if (!body) return;
+
+      const clientMessageId = crypto.randomUUID();
+      input.value = "";
+
+      if (socket && socket.connected) {
+        socket.emit("typing", { conversationId, isTyping: false });
+        socket.emit("message:send", {
+          clientMessageId,
+          conversationId: conversationId || undefined,
+          body,
+          pageUrl: window.location.href,
+        }, (ack) => {
+          if (!ack?.ok) {
+            alert("Send failed: " + (ack?.error || "Unknown error"));
+          }
+        });
+      }
+    }
+
+    function resetSession() {
+      localStorage.removeItem("chat_test_visitor_token");
+      token = null;
+      lastSeq = 0;
+      conversationId = null;
+      document.getElementById("messages").innerHTML = "";
+      if (socket) socket.disconnect();
+      initSession();
+    }
+
+    initSession();
+  </script>
+</body>
+</html>

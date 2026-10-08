@@ -1,0 +1,78 @@
+services:
+  # Local Postgres. Currently unused — DATABASE_URL points at Neon instead — kept for whoever
+  # wants to run migrations/tests against a local database. To use it: uncomment this service and
+  # `postgres_data` below, and set DATABASE_URL to postgresql://relaydesk:relaydesk@localhost:5432/relaydesk.
+  #postgres:
+  #  image: postgres:16
+  #  container_name: relaydesk-postgres
+  #  ports:
+  #    - "5432:5432"
+  #  environment:
+  #    POSTGRES_USER: relaydesk
+  #    POSTGRES_PASSWORD: relaydesk
+  #    POSTGRES_DB: relaydesk
+  #  volumes:
+  #    - postgres_data:/var/lib/postgresql/data
+  #  healthcheck:
+  #    test: ["CMD-SHELL", "pg_isready -U relaydesk -d relaydesk"]
+  #    interval: 5s
+  #    timeout: 3s
+  #    retries: 5
+
+  # BullMQ, the rate limiter, the Socket.IO adapter and presence. Must NEVER evict: BullMQ and the
+  # adapter break if their keys disappear.
+  redis:
+    image: redis:latest
+    container_name: relaydesk-redis
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Response cache. A separate instance because the one above must stay `noeviction` (BullMQ loses
+  # jobs otherwise), while a cache has to evict to stay bounded. `volatile-lru` only evicts keys with
+  # a TTL: every cache entry has one, the namespace version counters don't. No persistence — an
+  # empty cache after a restart is the correct state.
+  redis-cache:
+    image: redis:7
+    container_name: relaydesk-redis-cache
+    ports:
+      - "6382:6379"
+    command: redis-server --save "" --appendonly no --maxmemory 256mb --maxmemory-policy volatile-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # A database for `pnpm test` only (never your dev data): `docker compose --profile test up -d postgres-test`, then
+  #   pnpm --filter server db:deploy   with DATABASE_URL=postgresql://postgres:password@localhost:5433/relaydesk_test
+  #   TEST_DATABASE_URL=<the same> pnpm test
+  # In memory (tmpfs), so it is fast and leaves nothing behind.
+  postgres-test:
+    image: postgres:16
+    profiles: ["test"]
+    container_name: relaydesk-postgres-test
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: relaydesk_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d relaydesk_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  #postgres_data:
+  redis_data:

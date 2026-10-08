@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cakes · Sweet Crumbs Bakery</title>
+    <style>
+      :root {
+        --bakery-brand: #B8285F;
+        --bakery-bg: #FFF7F9;
+        --bakery-ink: #3b1d28;
+        --bakery-card: #FFFFFF;
+        --bakery-border: #F3D9E2;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: 'Playfair Display', Georgia, serif;
+        margin: 0;
+        color: var(--bakery-ink);
+        background: var(--bakery-bg);
+        line-height: 1.6;
+      }
+      header, main, footer {
+        max-width: 840px;
+        margin: 0 auto;
+        padding: 24px 20px;
+      }
+      header {
+        border-bottom: 1px solid var(--bakery-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 26px;
+        color: var(--bakery-brand);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      nav a {
+        margin-left: 20px;
+        color: var(--bakery-ink);
+        text-decoration: none;
+        font-size: 15px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-weight: 500;
+      }
+      nav a:hover, nav a.active {
+        color: var(--bakery-brand);
+        text-decoration: underline;
+      }
+      .hero {
+        padding: 40px 0 20px;
+      }
+      .hero h2 {
+        font-size: 36px;
+        margin: 0 0 12px;
+        color: var(--bakery-brand);
+        line-height: 1.2;
+      }
+      .hero p {
+        font-size: 18px;
+        color: #5c3645;
+        margin: 0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        margin-top: 32px;
+      }
+      .card {
+        background: var(--bakery-card);
+        border: 1px solid var(--bakery-border);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(184, 40, 95, 0.04);
+      }
+      .card h3 {
+        margin: 0 0 8px;
+        color: var(--bakery-brand);
+        font-size: 20px;
+      }
+      .card p {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 14px;
+        color: #6d4b57;
+        margin: 0 0 12px;
+      }
+      .price {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-weight: 600;
+        color: var(--bakery-brand);
+      }
+      footer {
+        margin-top: 48px;
+        border-top: 1px solid var(--bakery-border);
+        color: #8c6875;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Sweet Crumbs Bakery</h1>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="cakes.html" class="active">Cakes</a>
+        <a href="delivery.html">Delivery</a>
+      </nav>
+    </header>
+    <main>
+      <section class="hero">
+        <h2>Celebration Cakes</h2>
+        <p>Bespoke tiered cakes, layered gateaux, and gluten/nut-free options made to order with 48 hours notice.</p>
+      </section>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Lemon Drizzle Layer</h3>
+          <p>Tangy Amalfi lemon curd with elderflower buttercream.</p>
+          <div class="price">From ₹750 (1 kg)</div>
+        </div>
+        <div class="card">
+          <h3>Raspberry Pistachio</h3>
+          <p>Sicilian pistachio frangipane with fresh raspberry glaze.</p>
+          <div class="price">From ₹1,100 (1 kg)</div>
+        </div>
+        <div class="card">
+          <h3>Custom Wedding Tier</h3>
+          <p>Two or three tiers tailored to your floral palette and dietary wishes.</p>
+          <div class="price">From ₹3,400 — chat with us</div>
+        </div>
+      </div>
+    </main>
+    <footer>
+      <p>Sweet Crumbs Bakery · 14 Beach Road, Visakhapatnam · Independent host page with RelayDesk chat widget embedded.</p>
+    </footer>
+
+    <!-- RelayDesk Embeddable Chat Widget -->
+    <script>
+      // The widget is added the way a business would, with one tag. `?key=` lets the admin's "Open the sample
+      // site" show their own workspace's widget here; without it the Sweet Crumbs demo key is used.
+      // The dev server turns `cakes.html?key=…` into `/cakes` and drops the query, so the key is also kept for
+      // this tab: clicking through the pages stays on the same workspace.
+      (function () {
+        var key = new URLSearchParams(location.search).get('key');
+        try {
+          if (key) sessionStorage.setItem('rd_test_site_key', key);
+          else key = sessionStorage.getItem('rd_test_site_key');
+        } catch (e) { /* storage blocked: the key from the URL still works for this page */ }
+        document.querySelectorAll('nav a').forEach(function (a) { a.search = location.search; });
+        var tag = document.createElement('script');
+        tag.async = true;
+        tag.src = 'http://localhost:5173/loader.js';
+        tag.setAttribute('data-key', key || 'rd_pk_sweetcrumbsbakery0000001');
+        document.body.appendChild(tag);
+      })();
+    </script>
+  </body>
+</html>
