@@ -1,0 +1,30 @@
+{
+  "name": "relaydesk",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "check-types": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "devDependencies": {
+    "prettier": "^3.9.9",
+    "turbo": "^2.11.7",
+    "typescript": "5.9.2"
+  },
+  "overrides": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "@types/pg": "8.20.4"
+  }
+}
