@@ -1,0 +1,12 @@
+{
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter @repo/types build && pnpm --filter widget build",
+  "outputDirectory": "dist",
+  "headers": [
+    { "source": "/loader.js", "headers": [
+      { "key": "Cache-Control", "value": "public, max-age=300, s-maxage=3600" },
+      { "key": "Access-Control-Allow-Origin", "value": "*" } ] },
+    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
+    { "source": "/frame.html", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }] }
+  ]
+}
