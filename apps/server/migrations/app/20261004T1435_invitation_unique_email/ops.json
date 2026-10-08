@@ -1,0 +1,80 @@
+[
+  {
+    "id": "dropIndex.invitation.invitation_workspaceId_email_idx_7f289aec",
+    "label": "Drop index \"invitation_workspaceId_email_idx_7f289aec\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "invitation_workspaceId_email_idx_7f289aec",
+        "table": "invitation"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"invitation_workspaceId_email_idx_7f289aec\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"invitation_workspaceId_email_idx_7f289aec\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop index \"invitation_workspaceId_email_idx_7f289aec\"",
+        "sql": "DROP INDEX \"public\".\"invitation_workspaceId_email_idx_7f289aec\"",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"invitation_workspaceId_email_idx_7f289aec\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"invitation_workspaceId_email_idx_7f289aec\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.invitation.invitation_workspace_email_lower_0d97222b",
+    "label": "Create index \"invitation_workspace_email_lower_0d97222b\" on \"invitation\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "invitation_workspace_email_lower_0d97222b",
+        "table": "invitation"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"invitation_workspace_email_lower_0d97222b\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"invitation_workspace_email_lower_0d97222b\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"invitation_workspace_email_lower_0d97222b\"",
+        "sql": "CREATE UNIQUE INDEX \"invitation_workspace_email_lower_0d97222b\" ON \"public\".\"invitation\" (\"workspaceId\", lower(email))",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"invitation_workspace_email_lower_0d97222b\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"invitation_workspace_email_lower_0d97222b\""
+        ]
+      }
+    ]
+  }
+]

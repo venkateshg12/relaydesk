@@ -1,0 +1,255 @@
+[
+  {
+    "id": "column.public.member.authProvider",
+    "label": "Add column \"authProvider\" to \"member\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "authProvider",
+        "table": "member"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"authProvider\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "member",
+          "authProvider"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"authProvider\"",
+        "sql": "ALTER TABLE \"public\".\"member\" ADD COLUMN \"authProvider\" text DEFAULT 'local' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"authProvider\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "member",
+          "authProvider"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.member.avatar",
+    "label": "Add column \"avatar\" to \"member\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "avatar",
+        "table": "member"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"avatar\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "member",
+          "avatar"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"avatar\"",
+        "sql": "ALTER TABLE \"public\".\"member\" ADD COLUMN \"avatar\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"avatar\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "member",
+          "avatar"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.member.googleId",
+    "label": "Add column \"googleId\" to \"member\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "googleId",
+        "table": "member"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"googleId\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "member",
+          "googleId"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"googleId\"",
+        "sql": "ALTER TABLE \"public\".\"member\" ADD COLUMN \"googleId\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"googleId\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "member",
+          "googleId"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "alterNullability.dropNotNull.member.passwordHash",
+    "label": "Drop NOT NULL on \"member\".\"passwordHash\"",
+    "operationClass": "widening",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "passwordHash",
+        "table": "member"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"passwordHash\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "member",
+          "passwordHash"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop NOT NULL on \"passwordHash\"",
+        "sql": "ALTER TABLE \"public\".\"member\" ALTER COLUMN \"passwordHash\" DROP NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"passwordHash\" is nullable",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"is_nullable\" = $4)) AS \"result\"",
+        "params": [
+          "public",
+          "member",
+          "passwordHash",
+          "YES"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "checkConstraint.member.member_authProvider_check_7916b13c",
+    "label": "Add check constraint \"member_authProvider_check_7916b13c\" on \"member\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "member_authProvider_check_7916b13c",
+        "table": "member"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"member_authProvider_check_7916b13c\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "member_authProvider_check_7916b13c",
+          "public",
+          "\"public\".\"member\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add check constraint \"member_authProvider_check_7916b13c\"",
+        "sql": "ALTER TABLE \"public\".\"member\" ADD CONSTRAINT \"member_authProvider_check_7916b13c\" CHECK (\"authProvider\" IN ('local', 'google'))"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"member_authProvider_check_7916b13c\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "member_authProvider_check_7916b13c",
+          "public",
+          "\"public\".\"member\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.member.member_googleId_key",
+    "label": "Add unique constraint on \"member\" (googleId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "member_googleId_key",
+        "table": "member"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"member_googleId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "member_googleId_key",
+          "public",
+          "\"public\".\"member\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"member_googleId_key\"",
+        "sql": "ALTER TABLE \"public\".\"member\" ADD CONSTRAINT \"member_googleId_key\" UNIQUE (\"googleId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"member_googleId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "member_googleId_key",
+          "public",
+          "\"public\".\"member\""
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,214 @@
+enum Role {
+  @@type("pg/text@1")
+  admin
+  agent
+}
+
+enum AuthProvider {
+  @@type("pg/text@1")
+  local
+  google
+}
+
+enum MemberStatus {
+  @@type("pg/text@1")
+  active
+  removed
+}
+
+enum ConversationStatus {
+  @@type("pg/text@1")
+  unassigned
+  assigned
+  resolved
+}
+
+enum SenderType {
+  @@type("pg/text@1")
+  visitor
+  agent
+  system
+}
+
+// Tenant integrity: a row that points at a member, visitor or conversation carries the parent's
+// `workspaceId` in the same foreign key — `(memberId, workspaceId) → member(id, workspaceId)` — so
+// the database refuses a child whose workspace differs from its parent's. Parents expose a unique
+// `(id, workspaceId)` for those keys to target.
+//
+// Owning relations cascade (a deleted workspace takes everything with it). "Who did this" references
+// (assignee, author, sender, creator, inviter) are NO ACTION: Postgres checks them at the end of the
+// statement, so a workspace delete still cascades cleanly, while hard-deleting a member that is still
+// referenced is refused — members are soft-removed (`status = removed`), never deleted.
+
+model Workspace {
+  id            Uuid   @id @default(uuid())
+  name          String
+  publicKey     String @unique
+  widgetColor   String @default("#4F46E5")
+  greeting      String @default("Hi, how can we help?")
+  awayMessage   String @default("We're away right now — leave your email and we'll reply.")
+  // Last "Visitor 1042" number handed out; incremented in the visitor-insert transaction, like `lastSeq`.
+  lastVisitorNo Int    @default(1000)
+  isDemo        Boolean @default(false)
+  demoExpiresAt TimestamptzString?
+  createdAt     TimestamptzString @default(now())
+  updatedAt     TimestamptzString @default(now())
+  members       Member[]
+  invitations   Invitation[]
+  visitors      Visitor[]
+  savedReplies  SavedReply[]
+
+  @@index([isDemo, demoExpiresAt])
+}
+
+model Member {
+  id           Uuid   @id @default(uuid())
+  workspaceId  Uuid
+  email        String
+  name         String
+  // Null for an account that signs in with Google only.
+  passwordHash String?
+  googleId     String? @unique
+  authProvider AuthProvider @default(local)
+  avatar       String?
+  role         Role   @default(agent)
+  status       MemberStatus @default(active)
+  createdAt    TimestamptzString @default(now())
+  updatedAt    TimestamptzString @default(now())
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessions              Session[]
+  sentInvitations       Invitation[]   @relation("InvitedBy")
+  assignedConversations Conversation[] @relation("Assignee")
+  lastAssigned          Conversation[] @relation("LastAssignee")
+  sentMessages          Message[]      @relation("SenderMember")
+  notes                 Note[]         @relation("NoteAuthor")
+  savedReplies          SavedReply[]   @relation("SavedReplyCreator")
+
+  @@unique([id, workspaceId])
+  @@index(expression: "lower(email)", unique: true, name: "member_email_lower")
+  @@index([workspaceId, status])
+}
+
+model Session {
+  id             Uuid   @id @default(uuid())
+  memberId       Uuid
+  workspaceId    Uuid
+  userAgent      String?
+  refreshJti     String
+  prevRefreshJti String?
+  rotatedAt      TimestamptzString?
+  expiresAt      TimestamptzString
+  createdAt      TimestamptzString @default(now())
+  member         Member @relation(fields: [memberId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([expiresAt])
+}
+
+model Invitation {
+  id          Uuid   @id @default(uuid())
+  workspaceId Uuid
+  email       String
+  tokenHash   String @unique
+  invitedById Uuid
+  expiresAt   TimestamptzString
+  acceptedAt  TimestamptzString?
+  createdAt   TimestamptzString @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   Member    @relation("InvitedBy", fields: [invitedById, workspaceId], references: [id, workspaceId], onDelete: NoAction)
+
+  // One invitation row per address per workspace: re-inviting replaces an expired one instead of piling up.
+  @@index(expression: "\"workspaceId\", lower(email)", unique: true, name: "invitation_workspace_email_lower")
+}
+
+model Visitor {
+  id           Uuid   @id @default(uuid())
+  workspaceId  Uuid
+  displayNo    Int
+  name         String?
+  email        String?
+  lastPageUrl  String?
+  firstSeenAt  TimestamptzString @default(now())
+  lastSeenAt   TimestamptzString @default(now())
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation Conversation?
+
+  @@unique([id, workspaceId])
+  @@unique([workspaceId, displayNo])
+  @@index([workspaceId, email])
+}
+
+model Conversation {
+  id                 Uuid   @id @default(uuid())
+  workspaceId        Uuid
+  visitorId          Uuid   @unique
+  status             ConversationStatus @default(unassigned)
+  assigneeId         Uuid?
+  lastAssigneeId     Uuid?
+  lastSeq            Int    @default(0)
+  lastMessageAt      TimestamptzString?
+  lastMessagePreview String?
+  visitorLastReadSeq Int    @default(0)
+  agentLastReadSeq   Int    @default(0)
+  firstAgentReplyAt  TimestamptzString?
+  resolvedAt         TimestamptzString?
+  createdAt          TimestamptzString @default(now())
+  updatedAt          TimestamptzString @default(now())
+  visitor      Visitor @relation(fields: [visitorId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  assignee     Member? @relation("Assignee", fields: [assigneeId, workspaceId], references: [id, workspaceId], onDelete: NoAction)
+  lastAssignee Member? @relation("LastAssignee", fields: [lastAssigneeId, workspaceId], references: [id, workspaceId], onDelete: NoAction)
+  messages     Message[]
+  notes        Note[]
+
+  @@unique([id, workspaceId])
+  @@unique([visitorId, workspaceId])
+  @@index(expression: "\"workspaceId\", status, \"lastMessageAt\" DESC", name: "conversation_inbox_order")
+  @@index([workspaceId, assigneeId, status])
+  @@check(expression: "status <> 'assigned' OR \"assigneeId\" IS NOT NULL", name: "conversation_assigned_has_assignee")
+}
+
+model Message {
+  id              Uuid   @id @default(uuid())
+  workspaceId     Uuid
+  conversationId  Uuid
+  seq             Int
+  clientMessageId String
+  senderType      SenderType
+  senderMemberId  Uuid?
+  body            String
+  createdAt       TimestamptzString @default(now())
+  conversation    Conversation @relation(fields: [conversationId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  senderMember    Member?      @relation("SenderMember", fields: [senderMemberId, workspaceId], references: [id, workspaceId], onDelete: NoAction)
+
+  @@index([conversationId, seq], unique: true, name: "message_conversation_seq_unique")
+  @@index([conversationId, clientMessageId], unique: true, name: "message_conversation_client_msg_unique")
+  @@check(expression: "char_length(body) BETWEEN 1 AND 4000", name: "message_body_len")
+}
+
+model Note {
+  id             Uuid   @id @default(uuid())
+  workspaceId    Uuid
+  conversationId Uuid
+  authorId       Uuid
+  body           String
+  createdAt      TimestamptzString @default(now())
+  conversation   Conversation @relation(fields: [conversationId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  author         Member       @relation("NoteAuthor", fields: [authorId, workspaceId], references: [id, workspaceId], onDelete: NoAction)
+
+  @@index([conversationId, createdAt])
+}
+
+model SavedReply {
+  id          Uuid   @id @default(uuid())
+  workspaceId Uuid
+  title       String
+  shortcut    String
+  body        String
+  createdById Uuid
+  createdAt   TimestamptzString @default(now())
+  updatedAt   TimestamptzString @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   Member    @relation("SavedReplyCreator", fields: [createdById, workspaceId], references: [id, workspaceId], onDelete: NoAction)
+
+  @@index(expression: "\"workspaceId\", lower(shortcut)", unique: true, name: "saved_reply_shortcut_lower")
+}

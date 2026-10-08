@@ -1,0 +1,200 @@
+[
+  {
+    "id": "deferrable.conversation_assigneeId_workspaceId_fkey",
+    "invariantId": "deferrable.conversation_assigneeId_workspaceId_fkey",
+    "label": "Make \"conversation_assigneeId_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [
+      {
+        "description": "foreign key \"conversation_assigneeId_workspaceId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND contype = 'f')",
+        "params": [
+          "conversation_assigneeId_workspaceId_fkey"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "defer the check to commit",
+        "sql": "ALTER TABLE \"public\".\"conversation\" ALTER CONSTRAINT \"conversation_assigneeId_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "\"conversation_assigneeId_workspaceId_fkey\" is deferred",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND condeferrable AND condeferred)",
+        "params": [
+          "conversation_assigneeId_workspaceId_fkey"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "deferrable.conversation_lastAssigneeId_workspaceId_fkey",
+    "invariantId": "deferrable.conversation_lastAssigneeId_workspaceId_fkey",
+    "label": "Make \"conversation_lastAssigneeId_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [
+      {
+        "description": "foreign key \"conversation_lastAssigneeId_workspaceId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND contype = 'f')",
+        "params": [
+          "conversation_lastAssigneeId_workspaceId_fkey"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "defer the check to commit",
+        "sql": "ALTER TABLE \"public\".\"conversation\" ALTER CONSTRAINT \"conversation_lastAssigneeId_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "\"conversation_lastAssigneeId_workspaceId_fkey\" is deferred",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND condeferrable AND condeferred)",
+        "params": [
+          "conversation_lastAssigneeId_workspaceId_fkey"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "deferrable.invitation_invitedById_workspaceId_fkey",
+    "invariantId": "deferrable.invitation_invitedById_workspaceId_fkey",
+    "label": "Make \"invitation_invitedById_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [
+      {
+        "description": "foreign key \"invitation_invitedById_workspaceId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND contype = 'f')",
+        "params": [
+          "invitation_invitedById_workspaceId_fkey"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "defer the check to commit",
+        "sql": "ALTER TABLE \"public\".\"invitation\" ALTER CONSTRAINT \"invitation_invitedById_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "\"invitation_invitedById_workspaceId_fkey\" is deferred",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND condeferrable AND condeferred)",
+        "params": [
+          "invitation_invitedById_workspaceId_fkey"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "deferrable.message_senderMemberId_workspaceId_fkey",
+    "invariantId": "deferrable.message_senderMemberId_workspaceId_fkey",
+    "label": "Make \"message_senderMemberId_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [
+      {
+        "description": "foreign key \"message_senderMemberId_workspaceId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND contype = 'f')",
+        "params": [
+          "message_senderMemberId_workspaceId_fkey"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "defer the check to commit",
+        "sql": "ALTER TABLE \"public\".\"message\" ALTER CONSTRAINT \"message_senderMemberId_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "\"message_senderMemberId_workspaceId_fkey\" is deferred",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND condeferrable AND condeferred)",
+        "params": [
+          "message_senderMemberId_workspaceId_fkey"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "deferrable.note_authorId_workspaceId_fkey",
+    "invariantId": "deferrable.note_authorId_workspaceId_fkey",
+    "label": "Make \"note_authorId_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [
+      {
+        "description": "foreign key \"note_authorId_workspaceId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND contype = 'f')",
+        "params": [
+          "note_authorId_workspaceId_fkey"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "defer the check to commit",
+        "sql": "ALTER TABLE \"public\".\"note\" ALTER CONSTRAINT \"note_authorId_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "\"note_authorId_workspaceId_fkey\" is deferred",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND condeferrable AND condeferred)",
+        "params": [
+          "note_authorId_workspaceId_fkey"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "deferrable.savedReply_createdById_workspaceId_fkey",
+    "invariantId": "deferrable.savedReply_createdById_workspaceId_fkey",
+    "label": "Make \"savedReply_createdById_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [
+      {
+        "description": "foreign key \"savedReply_createdById_workspaceId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND contype = 'f')",
+        "params": [
+          "savedReply_createdById_workspaceId_fkey"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "defer the check to commit",
+        "sql": "ALTER TABLE \"public\".\"savedReply\" ALTER CONSTRAINT \"savedReply_createdById_workspaceId_fkey\" DEFERRABLE INITIALLY DEFERRED"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "\"savedReply_createdById_workspaceId_fkey\" is deferred",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1 AND condeferrable AND condeferred)",
+        "params": [
+          "savedReply_createdById_workspaceId_fkey"
+        ]
+      }
+    ]
+  }
+]

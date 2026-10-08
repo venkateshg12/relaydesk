@@ -1,0 +1,14 @@
+{
+  "from": "e482d1f39159edb3fb63c2a36e9bcfe4d8353fe82095cfcc271afb6496b452fc",
+  "to": "e482d1f39159edb3fb63c2a36e9bcfe4d8353fe82095cfcc271afb6496b452fc",
+  "providedInvariants": [
+    "deferrable.conversation_assigneeId_workspaceId_fkey",
+    "deferrable.conversation_lastAssigneeId_workspaceId_fkey",
+    "deferrable.invitation_invitedById_workspaceId_fkey",
+    "deferrable.message_senderMemberId_workspaceId_fkey",
+    "deferrable.note_authorId_workspaceId_fkey",
+    "deferrable.savedReply_createdById_workspaceId_fkey"
+  ],
+  "createdAt": "2026-10-04T11:05:49.697Z",
+  "migrationHash": "fe38aeb82e4ce2002f03e993f9428a4f92ce3d657ebc3064ad05f3e14cfa452a"
+}
