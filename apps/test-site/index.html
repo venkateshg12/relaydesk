@@ -156,7 +156,10 @@
         document.querySelectorAll('nav a').forEach(function (a) { a.search = location.search; });
         var tag = document.createElement('script');
         tag.async = true;
-        tag.src = 'http://localhost:5173/loader.js';
+        // The loader comes from the local widget when this page is opened on your own machine, and from the deployed
+        // widget everywhere else. (Never taken from the URL: a link could then load someone else's script.)
+        var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        tag.src = (isLocal ? 'http://localhost:5173' : 'https://relaydesk-widget.vercel.app') + '/loader.js';
         tag.setAttribute('data-key', key || 'rd_pk_sweetcrumbsbakery0000001');
         document.body.appendChild(tag);
       })();
