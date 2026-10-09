@@ -15,7 +15,9 @@ services:
     runtime: node
     plan: free
     region: ohio   # next to Neon us-east-2
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @repo/types build && pnpm --filter server build
+    # NODE_ENV=development for the install only: with NODE_ENV=production pnpm skips the devDependencies (TypeScript, esbuild,
+    # the shared tsconfig and type packages) that the build needs. The service itself still runs with NODE_ENV=production.
+    buildCommand: NODE_ENV=development pnpm install --frozen-lockfile && pnpm --filter @repo/types build && pnpm --filter server build
     startCommand: pnpm --filter server start
     healthCheckPath: /health
     autoDeployTrigger: commit
