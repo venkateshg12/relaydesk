@@ -7,7 +7,10 @@ import {
     AUTH_LOGIN_PREFIX,
     AUTH_REFRESH_PREFIX,
     AUTH_REFRESH_SOURCE_PREFIX,
+    AUTH_RESEND_VERIFICATION_PREFIX,
+    AUTH_RESEND_VERIFICATION_SOURCE_PREFIX,
     AUTH_SIGNUP_SOURCE_PREFIX,
+    AUTH_VERIFY_EMAIL_PREFIX,
     FIFTEEN_MINUTES_MS,
     FIVE_MINUTES_MS,
     GLOBAL_IP_PREFIX,
@@ -125,6 +128,32 @@ export const signupSourceLimiter = createRateLimiter({
     prefix: AUTH_SIGNUP_SOURCE_PREFIX,
     windowMs: ONE_HOUR_MS,
     max: 10,
+    keyResolver: ipKeyResolver
+});
+
+/*
+  Email verification. The token is 256 bits, so guessing one is hopeless; these limits exist to keep the endpoints from
+  being used to hammer the database, and to stop the resend button turning into a way to flood someone's inbox. The
+  per-address limit is the one that protects the victim: it caps the emails one address can receive, from any source.
+ */
+export const verifyEmailLimiter = createRateLimiter({
+    prefix: AUTH_VERIFY_EMAIL_PREFIX,
+    windowMs: FIFTEEN_MINUTES_MS,
+    max: 30,
+    keyResolver: ipKeyResolver
+});
+
+export const resendVerificationLimiter = createRateLimiter({
+    prefix: AUTH_RESEND_VERIFICATION_PREFIX,
+    windowMs: ONE_HOUR_MS,
+    max: 5,
+    keyResolver: emailKeyResolver
+});
+
+export const resendVerificationSourceLimiter = createRateLimiter({
+    prefix: AUTH_RESEND_VERIFICATION_SOURCE_PREFIX,
+    windowMs: ONE_HOUR_MS,
+    max: 20,
     keyResolver: ipKeyResolver
 });
 

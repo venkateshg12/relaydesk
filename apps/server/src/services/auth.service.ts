@@ -3,7 +3,7 @@ import type { ChangePasswordSchema, LoginInSchema, SignUpSchema, UpdateProfileSc
 import { orm, db } from "../prisma/db.js";
 import type { Models } from "../prisma/contract.js";
 import { appAssert } from "../utils/errors/index.js";
-import { BAD_REQUEST, CONFLICT, NOT_FOUND, UNAUTHORIZED } from "../constants/http.js";
+import { BAD_REQUEST, CONFLICT, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from "../constants/http.js";
 import { compareValue, hashValue } from "../utils/auth/password.js";
 import { omitPassword } from "../utils/auth/omitPassword.js";
 import type { GoogleProfile } from "../utils/auth/google.js";
@@ -13,6 +13,8 @@ import type { RefreshTokenPayload } from "../types/auth.types.js";
 import { appErrorCode } from "../constants/appErrorCode.js";
 import { withDuplicateGuard } from "../utils/db/pgErrors.js";
 import { cache, sessionCacheKey } from "../utils/cache/index.js";
+import { createVerificationToken, hashVerificationToken } from "../utils/auth/verificationToken.js";
+import { EmailProducer } from "../jobs/producers/email.producer.js";
 
 const dummyPasswordHash = hashValue(crypto.randomBytes(32).toString("hex"));
 
@@ -73,7 +75,57 @@ export const revokeSessions = async (
     return ids.length;
 };
 
-export const signUpService = async ({ name, email, password, businessName, userAgent }: SignUpSchema) => {
+const VERIFICATION_LINK_TTL_MS = 24 * 60 * 60 * 1000;
+// A new link is not mailed more often than this per member, however it is asked for (login, resend button, sign-up
+// retry): the per-address rate limit caps the hour, this caps the burst.
+const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000;
+const VERIFICATION_LINK_INVALID = "This verification link has expired or was already used.";
+export const VERIFICATION_RESENT_MESSAGE =
+    "If that account exists and is not verified yet, we've sent a new verification link.";
+
+type VerifiableMember = Pick<Models.public_Member, "id" | "workspaceId" | "email" | "name">;
+
+/*
+  Replaces the member's live link with a fresh one and queues the email. One live link per member: the delete and the
+  insert are one transaction, so there is never a moment with two (or none, if the insert fails). Only the SHA-256
+  digest is stored; the raw token exists in the job and the email. The job is queued after the commit, and a queue
+  failure must not undo a sign-up that succeeded: the person can always ask for another link, so it is logged.
+ */
+export const issueEmailVerificationLink = async (member: VerifiableMember, { respectCooldown = false } = {}) => {
+    if (respectCooldown) {
+        const current = await orm.EmailVerification
+            .where({ memberId: member.id, workspaceId: member.workspaceId })
+            .select("createdAt")
+            .first();
+        if (current && Date.now() - new Date(current.createdAt).getTime() < VERIFICATION_RESEND_COOLDOWN_MS) return;
+    }
+
+    const { token, tokenHash } = createVerificationToken();
+    await db.transaction(async (tx) => {
+        const links = tx.orm.public.EmailVerification;
+        await links.where({ memberId: member.id, workspaceId: member.workspaceId }).deleteAll();
+        await links.create({
+            memberId: member.id,
+            workspaceId: member.workspaceId,
+            tokenHash,
+            expiresAt: new Date(Date.now() + VERIFICATION_LINK_TTL_MS).toISOString()
+        });
+    });
+
+    try {
+        await EmailProducer.addSendVerificationJob({
+            memberId: member.id,
+            workspaceId: member.workspaceId,
+            email: member.email,
+            name: member.name,
+            token
+        });
+    } catch (error) {
+        console.error("[Auth] Could not queue the verification email:", error);
+    }
+};
+
+export const signUpService = async ({ name, email, password, businessName }: SignUpSchema) => {
     // Hashed before the transaction opens, so a pooled connection isn't held for the length of argon2.
     const passwordHash = await hashValue(password);
 
@@ -91,21 +143,18 @@ export const signUpService = async ({ name, email, password, businessName, userA
                     name,
                     email,
                     passwordHash,
-                    role: "admin"
+                    role: "admin",
+                    emailVerified: false
                 });
                 return { workspace, member };
             });
         }
     );
 
-    const { accessToken, refreshToken } = await createSessionAndTokens(member, userAgent);
+    // No session yet: the address is only a claim until its owner opens the emailed link (`verifyEmailService`).
+    await issueEmailVerificationLink(member);
 
-    return {
-        member: omitPassword(member),
-        workspace,
-        accessToken,
-        refreshToken
-    };
+    return { email: member.email, workspaceName: workspace.name };
 };
 
 export const loginUser = async ({ email, password, userAgent }: LoginInSchema) => {
@@ -120,6 +169,17 @@ export const loginUser = async ({ email, password, userAgent }: LoginInSchema) =
     appAssert(member && isValid, UNAUTHORIZED, "Invalid email or password");
     appAssert(member.status !== "removed", UNAUTHORIZED, "This account is no longer active");
 
+    // Checked after the password, so only someone who knows it learns the account exists and is unverified.
+    if (!member.emailVerified) {
+        await issueEmailVerificationLink(member, { respectCooldown: true });
+        appAssert(
+            false,
+            FORBIDDEN,
+            "Please verify your email first. We've sent you a verification link.",
+            appErrorCode.EmailNotVerified
+        );
+    }
+
     const workspace = await orm.Workspace.where({ id: member.workspaceId }).first();
     appAssert(workspace, NOT_FOUND, "Workspace not found");
 
@@ -131,6 +191,49 @@ export const loginUser = async ({ email, password, userAgent }: LoginInSchema) =
         accessToken,
         refreshToken
     };
+};
+
+/*
+  Redeems the emailed link: it is deleted and the member is marked verified in ONE transaction, so a link works once
+  (two clicks, a retry or a scanner cannot both win) and a failure in between cannot burn the link without verifying.
+  Opening it proves the address is theirs, so it also signs them in. An unknown, expired or used token all answer the
+  same, so the response tells nothing about which tokens exist.
+ */
+export const verifyEmailService = async (token: string, userAgent?: string) => {
+    const nowIso = new Date().toISOString();
+
+    const member = await db.transaction(async (tx) => {
+        const link = await tx.orm.public.EmailVerification
+            .where({ tokenHash: hashVerificationToken(token) })
+            .where((v) => v.expiresAt.gt(nowIso))
+            .delete();
+        appAssert(link, BAD_REQUEST, VERIFICATION_LINK_INVALID);
+
+        const verified = await tx.orm.public.Member
+            .where({ id: link.memberId, workspaceId: link.workspaceId })
+            .update({ emailVerified: true, updatedAt: nowIso });
+        appAssert(verified, BAD_REQUEST, VERIFICATION_LINK_INVALID);
+        return verified;
+    });
+    appAssert(member.status !== "removed", UNAUTHORIZED, "This account is no longer active");
+
+    const workspace = await orm.Workspace.where({ id: member.workspaceId }).first();
+    appAssert(workspace, NOT_FOUND, "Workspace not found");
+
+    const { accessToken, refreshToken } = await createSessionAndTokens(member, userAgent);
+
+    return { member: omitPassword(member), workspace, accessToken, refreshToken };
+};
+
+// Always the same answer, so the button cannot be used to learn which addresses are registered.
+export const resendVerificationEmailService = async (email: string) => {
+    const member = await orm.Member.where({ email }).first();
+
+    if (member && !member.emailVerified && member.status === "active" && member.passwordHash) {
+        await issueEmailVerificationLink(member, { respectCooldown: true });
+    }
+
+    return { message: VERIFICATION_RESENT_MESSAGE };
 };
 
 /*
@@ -183,7 +286,9 @@ export const googleSignInService = async (
                 googleId: profile.googleId,
                 authProvider: "google",
                 avatar: profile.avatar,
-                role: "admin"
+                role: "admin",
+                // Google has already proven the address (see `verifyGoogleIdToken`: a verified email only).
+                emailVerified: true
             });
             return { workspace, member };
         })
