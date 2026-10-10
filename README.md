@@ -22,7 +22,7 @@ It is a pnpm + Turborepo TypeScript monorepo: a Next.js app that holds the demo 
 - **Email through the Gmail API** (OAuth2 refresh token, no domain needed) with one shared HTML layout, a dark-mode variant and header-injection-safe MIME building — [details](#-email-gmail-api)
 - **A widget that cannot hurt the host site.** A dependency-free ~1.9 kB loader waits for `window.load`, wraps everything in `try/catch` and puts the UI in an iframe on its own origin; the `postMessage` protocol is pinned to origins in both directions — [details](#-the-widget)
 - **One validation source**: Zod schemas in `packages/types` cover every REST body and every socket event, and are used by the API, the web app and the widget
-- **Tests for the hard parts**: 47 server tests (19 of them drive real HTTP and real sockets against real Postgres and Redis), 10 Playwright browser tests, a load script, and CI — [details](#-testing)
+- **Tests for the hard parts**: 60 server tests (19 of them drive real HTTP and real sockets against real Postgres and Redis), 10 Playwright browser tests, a load script, and CI — [details](#-testing)
 
 ## 🖼️ Screens
 
@@ -161,6 +161,13 @@ Both cookies are `httpOnly`; in production they are `Secure` + `SameSite=None` (
 **Other auth details**
 - Passwords are hashed with argon2. An unknown email still runs a verify against a throwaway hash, so response time does not reveal which emails are registered.
 - Invitation tokens are stored as hashes, work once (consumed by an atomic conditional update) and expire after 2 days.
+- **Email verification.** Sign-up creates the member unverified and signs nobody in: it queues an email with a link (the
+  `send_verification` job, built on the shared email layout) and the web app shows "check your email". The token is 256
+  random bits, only its SHA-256 digest is stored, it lives 24 hours and works once (consumed with one conditional
+  delete in the same transaction that marks the member verified). Opening it also signs the person in. A login with the
+  right password on an unverified account answers `403 EMAIL_NOT_VERIFIED` and re-sends a link (at most one a minute,
+  five an hour per address). The link is verified by a `POST` from the page, not a `GET`, so mail scanners that open
+  links cannot use it up. Google sign-in, accepted invitations and demo workspaces count as verified from the start.
 - **Google sign-in** verifies the Google ID token on the server (`google-auth-library`) and accepts only a verified email. It works for log in, for sign-up (with a business name) and for accepting an invitation. An email that already has a password account is refused with `409` rather than linked, because sign-up here does not verify email and linking would be an account-takeover path.
 
 ## ⚡ Real Time
@@ -207,7 +214,7 @@ Email is sent outside the request: a service enqueues a job **after its database
 
 | Queue | Jobs | Attempts / backoff | Worker settings |
 |---|---|---|---|
-| `email-queue` | `send_invitation`, `send_offline_reply` | 3, exponential from 5 s | concurrency 5, limited to 2 jobs a second, 30 s lock |
+| `email-queue` | `send_verification`, `send_invitation`, `send_offline_reply` | 3, exponential from 5 s | concurrency 5, limited to 2 jobs a second, 30 s lock |
 | `maintenance-queue` | `sweep_expired` (every 15 min), `delete_demo_workspaces` (every 60 min) | repeatable | — |
 
 Completed jobs are kept for an hour, failed ones for a week.
@@ -215,7 +222,7 @@ Completed jobs are kept for an hour, failed ones for a week.
 - **Invitations** use a deterministic job id (`invite-<invitationId>`). The processor skips if the invitation was revoked, accepted or has expired, and throws `UnrecoverableError` for a malformed address.
 - **Offline replies are batched.** The job has one id per conversation and a 60-second delay, so replies written within a minute go out as one email; a conversation is emailed at most once every ten minutes (a Redis key remembers the last send). When the job runs it reads the unread agent replies from Postgres and skips if the visitor has read them, gave no email, or never reported a page to link back to. The link in the email is the page's origin and path only, and only for `http(s)`.
 - **Demo workspaces** never send email: their sample visitors' addresses are not real.
-- **Cleanup.** `sweep_expired` deletes expired sessions and invitations; `delete_demo_workspaces` deletes expired demo workspaces, and one delete removes all of a workspace's data because every child row cascades.
+- **Cleanup.** `sweep_expired` deletes expired sessions, invitations and verification links; `delete_demo_workspaces` deletes expired demo workspaces, and one delete removes all of a workspace's data because every child row cascades.
 - **A permanent failure ends the job at once.** `MailError.isRetryable` marks a bad recipient or a revoked token as not worth retrying; quota limits and Google outages are retried with backoff.
 
 **Monitoring.** Bull Board is mounted at `/admin/queues` in development, and in production only when `ENABLE_QUEUE_DASHBOARD=true` with credentials, behind basic auth. It stays off by default because job payloads contain invitation tokens.
@@ -224,10 +231,11 @@ Completed jobs are kept for an hour, failed ones for a week.
 
 Mail goes out through the **Gmail API** as one Google account, with an OAuth2 refresh token: no domain to verify and nothing to pay for. `utils/email/sendMail.ts` trades the refresh token for a one-hour access token (the client caches it), builds the message (`mime.ts`: multipart text + HTML, RFC 2047 UTF-8 headers, a header value can never contain a line break) and posts it to `users/me/messages/send`. Without credentials, development prints the email in the server log (the invitation link is in it), and production reports every send as failed rather than pretending it went out.
 
-**The emails.** Both are built on one shared layout (`emailLayout.ts` → `renderEmail`): brand header, heading, body, one button, the link again as plain text, and a footer that says why the person got the email. It is table-based with inline styles, has a dark-mode variant and fits a phone; everything a person typed is escaped. A new email is `renderEmail({...})` plus its words.
+**The emails.** All of them are built on one shared layout (`emailLayout.ts` → `renderEmail`): brand header, heading, body, one button, the link again as plain text, and a footer that says why the person got the email. It is table-based with inline styles, has a dark-mode variant and fits a phone; everything a person typed is escaped. A new email is `renderEmail({...})` plus its words.
 
 | Email | When |
 |---|---|
+| Verification | someone signs up with a password |
 | Invitation | an admin invites an agent |
 | Reply while away | an agent replies after the visitor left, and the visitor gave an email |
 
@@ -291,6 +299,7 @@ A custom limiter, not a library (`utils/rateLimiter/`, wired in by `middleware/r
 | Sign-up: 10 | 1 h | IP |
 | Refresh: 20 per session, 300 per source | 15 min | session / IP |
 | Invitations: 30 | 1 h | workspace |
+| Verification link: redeem 30 / resend 5 per address, 20 per IP | 15 min / 1 h | IP / email, IP |
 | Widget session: 30 | 5 min | IP |
 | Widget messages: 20 (HTTP and socket) | 1 min | visitor |
 | Authenticated API: 300 | 5 min | member |
@@ -308,6 +317,7 @@ PostgreSQL (Neon) through **Prisma 8** (release candidate): a `contract.prisma`,
 | `member` | admins and agents; unique `lower(email)`; password hash or Google id; status `active` / `removed` |
 | `session` | refresh `jti`, user agent, expiry |
 | `invitation` | hashed token, expiry; one pending invitation per workspace + `lower(email)` |
+| `emailVerification` | the sign-up link: hashed token, 24 h expiry, one live row per member; `member.emailVerified` is false until it is redeemed |
 | `visitor` | anonymous visitor; per-workspace display number ("Visitor 1042"); optional name, email, last page |
 | `conversation` | exactly one per visitor; status, assignee, last assignee, `lastSeq`, read marks |
 | `message` | `seq` and `clientMessageId` per conversation; sender type |
@@ -465,7 +475,7 @@ Open `http://localhost:3000`. The homepage starts a private demo workspace on it
 | `tricky-situations.test.ts` (7) | Ordering, idempotency, assignment race, reopen, note isolation, tenancy, removal |
 | `googleAuth.test.ts` (6) | Google sign-in, sign-up and invitation paths |
 | `gmailAuth.test.ts` (7) | The Gmail authorise flow: consent URL, state cookie, every refusal |
-| `mime.test.ts` (9), `emailTemplates.test.ts` (6) | Message building, header-injection safety, template escaping |
+| `mime.test.ts` (9), `emailTemplates.test.ts` (6), `emailVerification.test.ts` (13) | Message building, header-injection safety, template escaping |
 | Playwright (`apps/e2e`, 10) | Two-browser chat and offline mode, host-site isolation, axe accessibility checks |
 | `pnpm --filter server load` | Load test: N visitors, M agents, p50 / p95 / p99 acknowledgement latency |
 

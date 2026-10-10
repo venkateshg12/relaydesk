@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginInSchema, type LoginInSchema } from "@repo/types";
 import { useLogin } from "@/hooks/auth/useLogin";
+import { useResendVerification } from "@/hooks/auth/useResendVerification";
 import { Button } from "@/components/ui/button";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import { Input } from "@/components/ui/input";
@@ -15,10 +16,12 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { mutate: login, isPending, error } = useLogin();
+  const resend = useResendVerification();
 
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<LoginInSchema>({
     resolver: zodResolver(loginInSchema),
@@ -98,10 +101,26 @@ export default function LoginPage() {
         </div>
 
         {/* Server error callout (never a toast) */}
-        {error && (
-          <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive leading-relaxed">
-            {error.message || "Invalid email or password."}
+        {error && error.code === "EMAIL_NOT_VERIFIED" ? (
+          // The password was right but the address isn't verified yet: not an error to fix, a step to finish.
+          <div className="rounded-lg border border-border bg-muted p-3 text-xs leading-relaxed text-foreground">
+            <p>{error.message}</p>
+            <p className="mt-1 text-muted-foreground">Check your spam folder too.</p>
+            <button
+              type="button"
+              disabled={resend.isPending || resend.isSuccess}
+              onClick={() => resend.mutate(getValues("email"))}
+              className="mt-2 font-medium underline underline-offset-2 disabled:no-underline disabled:opacity-60"
+            >
+              {resend.isSuccess ? "Sent. Check your inbox" : "Resend the verification email"}
+            </button>
           </div>
+        ) : (
+          error && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive leading-relaxed">
+              {error.message || "Invalid email or password."}
+            </div>
+          )
         )}
 
         {/* Submit button */}
