@@ -16,8 +16,16 @@ export async function processSweepExpired(job: Job) {
         .where((i) => i.acceptedAt.isNull())
         .deleteAll();
 
-    job.log(`[Sweep] Deleted ${sessions.length} expired sessions and ${invitations.length} expired invitations`);
-    return { deletedSessions: sessions.length, deletedInvitations: invitations.length };
+    const verifications = await orm.EmailVerification.where((v) => v.expiresAt.lt(nowIso)).deleteAll();
+
+    job.log(
+        `[Sweep] Deleted ${sessions.length} expired sessions, ${invitations.length} expired invitations and ${verifications.length} expired verification links`
+    );
+    return {
+        deletedSessions: sessions.length,
+        deletedInvitations: invitations.length,
+        deletedVerificationLinks: verifications.length
+    };
 }
 
 // Repeatable: every table cascades from `workspace` and the member references are deferred to commit,

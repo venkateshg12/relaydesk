@@ -15,6 +15,19 @@ export const invitationEmailTemplate = (inviteLink: string, workspaceName: strin
         reason: `You got this because ${inviterName} entered your email address. If you weren't expecting it, ignore this email: nothing happens unless you click the link.`,
     });
 
+export const verificationEmailTemplate = (verifyLink: string, name: string) =>
+    renderEmail({
+        title: "Verify your email for RelayDesk",
+        preheader: "Confirm your email address to open your RelayDesk workspace.",
+        heading: "Confirm your email",
+        bodyHtml:
+            paragraph(`Hi ${name}, welcome to RelayDesk. Confirm that this is your email address to finish creating your workspace.`) +
+            paragraph("As soon as you confirm, you'll land in your inbox."),
+        button: { label: "Verify my email", url: verifyLink },
+        note: "This link works once and expires in 24 hours.",
+        reason: "You got this because someone signed up for RelayDesk with this email address. If that wasn't you, ignore this email: no account is activated until the link is opened.",
+    });
+
 export const offlineReplyEmailTemplate = (chatLink: string, agentName: string, body: string) =>
     renderEmail({
         title: `New reply from ${agentName}`,

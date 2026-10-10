@@ -1,5 +1,5 @@
 import { JOB_NAMES } from "../../constants/queue.js";
-import type { SendInvitationPayload, SendOfflineReplyPayload } from "../interfaces/jobPayload.js";
+import type { SendInvitationPayload, SendOfflineReplyPayload, SendVerificationPayload } from "../interfaces/jobPayload.js";
 import { emailQueue } from "../queues/email.queue.js";
 import { redisConnection } from "../redis/connection.js";
 
@@ -13,6 +13,16 @@ export class EmailProducer {
     static async addSendInvitationJob(payload: SendInvitationPayload) {
         return await emailQueue.add(JOB_NAMES.EMAIL.SEND_INVITATION, payload, {
             jobId: `invite-${payload.invitationId}`,
+        });
+    }
+
+    /*
+      The id carries the first characters of the token, so a resend (a new token) is a new job. With one id per member,
+      BullMQ would quietly ignore a resend while the previous job is still remembered (completed jobs are kept an hour).
+     */
+    static async addSendVerificationJob(payload: SendVerificationPayload) {
+        return await emailQueue.add(JOB_NAMES.EMAIL.SEND_VERIFICATION, payload, {
+            jobId: `verify-${payload.memberId}-${payload.token.slice(0, 16)}`,
         });
     }
 

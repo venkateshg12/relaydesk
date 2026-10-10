@@ -1,7 +1,7 @@
 import { Job, Worker } from "bullmq";
 import { JOB_NAMES, QUEUE_NAMES } from "../../constants/queue.js";
-import { processSendInvitation, processSendOfflineReply } from "../processors/email.processor.js";
-import type { SendInvitationPayload, SendOfflineReplyPayload } from "../interfaces/jobPayload.js";
+import { processSendInvitation, processSendOfflineReply, processSendVerification } from "../processors/email.processor.js";
+import type { SendInvitationPayload, SendOfflineReplyPayload, SendVerificationPayload } from "../interfaces/jobPayload.js";
 import { redisConnection } from "../redis/connection.js";
 
 export const emailWorker = new Worker(
@@ -10,6 +10,8 @@ export const emailWorker = new Worker(
         switch (job.name) {
             case JOB_NAMES.EMAIL.SEND_INVITATION:
                 return await processSendInvitation(job as Job<SendInvitationPayload>);
+            case JOB_NAMES.EMAIL.SEND_VERIFICATION:
+                return await processSendVerification(job as Job<SendVerificationPayload>);
             case JOB_NAMES.EMAIL.SEND_OFFLINE_REPLY:
                 return await processSendOfflineReply(job as Job<SendOfflineReplyPayload>);
             default:

@@ -1,6 +1,7 @@
 import { Job, UnrecoverableError } from "bullmq";
-import type { SendInvitationPayload, SendOfflineReplyPayload } from "../interfaces/jobPayload.js";
-import { getInvitationEmail, getOfflineReplyEmail, MailError, sendMail } from "../../utils/email/index.js";
+import type { SendInvitationPayload, SendOfflineReplyPayload, SendVerificationPayload } from "../interfaces/jobPayload.js";
+import { getInvitationEmail, getOfflineReplyEmail, getVerificationEmail, MailError, sendMail } from "../../utils/email/index.js";
+import { hashVerificationToken } from "../../utils/auth/verificationToken.js";
 import { orm } from "../../prisma/db.js";
 import { pool } from "../../config/db.js";
 import { redisConnection } from "../redis/connection.js";
@@ -52,6 +53,38 @@ export async function processSendInvitation(job: Job<SendInvitationPayload>) {
     }
 
     job.log(`[Success] Invitation email delivered to ${email}`);
+    return { status: "sent", deliveredAt: new Date().toISOString(), info: data };
+}
+
+/*
+  The sign-up verification email. Everything is re-read from Postgres: if the member verified in the meantime, was
+  removed, or asked for a newer link (which replaced this one), mailing this token would be pointless or confusing.
+ */
+export async function processSendVerification(job: Job<SendVerificationPayload>) {
+    const { memberId, workspaceId, email, name, token } = job.data;
+
+    if (!email || !email.includes("@")) {
+        throw new UnrecoverableError(`Invalid email format: ${email}`);
+    }
+
+    const member = await orm.Member.where({ id: memberId, workspaceId }).select("emailVerified", "status").first();
+    if (!member || member.emailVerified || member.status === "removed") {
+        return { status: "skipped", reason: "Member is gone, removed or already verified" };
+    }
+
+    const link = await orm.EmailVerification
+        .where({ memberId, workspaceId, tokenHash: hashVerificationToken(token) })
+        .where((v) => v.expiresAt.gt(new Date().toISOString()))
+        .first();
+    if (!link) return { status: "skipped", reason: "The link was replaced or has expired" };
+
+    job.log(`[Gmail] Delivering verification email to ${email}`);
+    const { data, error } = await sendMail({ to: email, ...getVerificationEmail(name, token) });
+    if (error) {
+        job.log(`[Error] Failed to send verification email to ${email}: ${error.message}`);
+        throw failedSend(error, `Failed to send verification email to ${email}`);
+    }
+
     return { status: "sent", deliveredAt: new Date().toISOString(), info: data };
 }
 
