@@ -3,6 +3,7 @@ import { pool } from "../config/db.js";
 import { createSessionAndTokens, signUpService } from "../services/auth.service.js";
 import { getOrCreateVisitorSessionService } from "../services/visitor.service.js";
 import { hashValue } from "../utils/auth/password.js";
+import { EmailProducer } from "../jobs/producers/email.producer.js";
 
 export interface TestMember {
   id: string;
@@ -27,8 +28,8 @@ const cookieOf = ({ accessToken, refreshToken }: { accessToken: string; refreshT
 export async function addTestMember(workspaceId: string, name: string, role: "admin" | "agent" = "agent"): Promise<TestMember> {
   const email = `test_${role}_${crypto.randomUUID()}@test.com`;
   const { rows } = await pool.query(
-    `INSERT INTO "public"."member" ("id", "workspaceId", "name", "email", "passwordHash", "role")
-     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5) RETURNING "id"`,
+    `INSERT INTO "public"."member" ("id", "workspaceId", "name", "email", "passwordHash", "role", "emailVerified")
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, true) RETURNING "id"`,
     [workspaceId, name, email, await hashValue("Password123!"), role]
   );
   const tokens = await createSessionAndTokens({ id: rows[0].id, workspaceId, role }, "jest");
@@ -46,19 +47,40 @@ export async function createTestWorkspace(): Promise<TestWorkspaceContext> {
   const unique = crypto.randomUUID();
   const adminEmail = `test_admin_${unique}@test.com`;
 
-  const adminAuth = await signUpService({
-    name: "Test Admin",
-    email: adminEmail,
-    password: "Password123!",
-    businessName: `Test Workspace ${unique}`,
-  });
-  const workspaceId = adminAuth.workspace.id;
-  const publicKey = adminAuth.workspace.publicKey;
+  // Sign-up queues a verification email that this factory never wants (the admin is marked verified below), and the
+  // queue can be a real, shared one, so the producer is stubbed for the call.
+  const addVerificationJob = EmailProducer.addSendVerificationJob;
+  EmailProducer.addSendVerificationJob = async () => undefined as never;
+  try {
+    await signUpService({
+      name: "Test Admin",
+      email: adminEmail,
+      password: "Password123!",
+      businessName: `Test Workspace ${unique}`,
+    });
+  } finally {
+    EmailProducer.addSendVerificationJob = addVerificationJob;
+  }
+  // Sign-up no longer signs anyone in: the address has to be verified first. The factory marks it verified straight
+  // in the database (the emailed link is tested on its own in emailVerification.test.ts) and opens the session itself.
+  const { rows } = await pool.query(
+    `UPDATE "public"."member" m SET "emailVerified" = true
+       FROM "public"."workspace" w
+      WHERE m."email" = $1 AND w."id" = m."workspaceId"
+  RETURNING m."id", m."workspaceId", m."role", w."publicKey"`,
+    [adminEmail]
+  );
+  const admin = rows[0] as { id: string; workspaceId: string; role: "admin"; publicKey: string };
+  // Verifying consumes the link, as the real flow does.
+  await pool.query(`DELETE FROM "public"."emailVerification" WHERE "memberId" = $1`, [admin.id]);
+  const adminAuth = await createSessionAndTokens(admin, "jest");
+  const workspaceId = admin.workspaceId;
+  const publicKey = admin.publicKey;
 
   return {
     workspaceId,
     publicKey,
-    admin: { id: adminAuth.member.id, email: adminEmail, name: "Test Admin", cookie: cookieOf(adminAuth) },
+    admin: { id: admin.id, email: adminEmail, name: "Test Admin", cookie: cookieOf(adminAuth) },
     agent: await addTestMember(workspaceId, "Test Agent"),
     visitor: await addTestVisitor(publicKey),
   };

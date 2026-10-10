@@ -77,8 +77,8 @@ export const createDemoSessionService = async ({ userAgent }: { userAgent?: stri
                  ("id", "name", "publicKey", "widgetColor", "greeting", "awayMessage", "lastVisitorNo", "isDemo", "demoExpiresAt")
              VALUES ($1, $3, $4, $5, $6, $7, $8, true, $9)
          ), member AS (
-             INSERT INTO "public"."member" ("id", "workspaceId", "name", "email", "passwordHash", "role")
-             VALUES ($2, $1, $10, $11, $12, 'admin')
+             INSERT INTO "public"."member" ("id", "workspaceId", "name", "email", "passwordHash", "role", "emailVerified")
+             VALUES ($2, $1, $10, $11, $12, 'admin', true)
          ), replies AS (
              INSERT INTO "public"."savedReply" ("id", "workspaceId", "title", "shortcut", "body", "createdById")
              SELECT gen_random_uuid(), $1, r.title, r.shortcut, r.body, $2

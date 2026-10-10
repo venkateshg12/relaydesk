@@ -70,7 +70,8 @@ async function seed() {
 
       const memberIds = new Map<string, string>();
       for (const { key, ...member } of members) {
-        const created = await orm.Member.create({ ...member, workspaceId, passwordHash });
+        // Sample accounts are verified: they exist to be logged into.
+        const created = await orm.Member.create({ ...member, workspaceId, passwordHash, emailVerified: true });
         memberIds.set(key, created.id);
       }
       const memberId = (key: string) => {

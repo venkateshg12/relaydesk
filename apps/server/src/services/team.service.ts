@@ -159,6 +159,8 @@ const createMemberFromInvitation = (
                 workspaceId: invitation.workspaceId,
                 email: invitation.email,
                 role: "agent",
+                // The invitation link was mailed to this address, and opening it is the proof.
+                emailVerified: true,
                 ...fields
             });
 
