@@ -27,16 +27,20 @@ interface QueueItem {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
+// A free hosting plan puts the API to sleep after a quiet spell and needs up to a minute to wake it. A shorter timeout
+// gave up while the server was still starting and showed a "network error" for what was only a slow first request.
+const REQUEST_TIMEOUT_MS = 90_000;
+
 const API = axios.create({
   baseURL: API_URL,
   withCredentials: true,
-  timeout: 15000,
+  timeout: REQUEST_TIMEOUT_MS,
 });
 
 const refreshClient = axios.create({
   baseURL: API_URL,
   withCredentials: true,
-  timeout: 15000,
+  timeout: REQUEST_TIMEOUT_MS,
 });
 
 let isRefreshing = false;
@@ -73,7 +77,8 @@ API.interceptors.response.use(
     if (!error.response) {
       return Promise.reject<ApiError>({
         status: 0,
-        message: "Network error. Please check your internet connection.",
+        message:
+          "Can't reach the server. If it was asleep it needs up to a minute to wake, so please try again.",
       });
     }
 

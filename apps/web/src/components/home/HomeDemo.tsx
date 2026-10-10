@@ -162,7 +162,7 @@ export function HomeDemo() {
         </div>
         <p className="text-center text-sm text-muted-foreground">
           Starting your private demo… the first visit after a quiet spell can
-          take a few seconds while the server wakes up.
+          take up to a minute while the server wakes up.
         </p>
       </div>
     );
