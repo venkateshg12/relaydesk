@@ -8,6 +8,10 @@
       "model": "Conversation",
       "namespace": "public"
     },
+    "emailVerification": {
+      "model": "EmailVerification",
+      "namespace": "public"
+    },
     "invitation": {
       "model": "Invitation",
       "namespace": "public"
@@ -376,6 +380,96 @@
               "table": "conversation"
             }
           },
+          "EmailVerification": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "expiresAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "memberId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "tokenHash": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "workspaceId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "member": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "memberId",
+                    "workspaceId"
+                  ],
+                  "targetFields": [
+                    "id",
+                    "workspaceId"
+                  ]
+                },
+                "to": {
+                  "model": "Member",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "expiresAt": {
+                  "column": "expiresAt"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "memberId": {
+                  "column": "memberId"
+                },
+                "tokenHash": {
+                  "column": "tokenHash"
+                },
+                "workspaceId": {
+                  "column": "workspaceId"
+                }
+              },
+              "namespaceId": "public",
+              "table": "emailVerification"
+            }
+          },
           "Invitation": {
             "fields": {
               "acceptedAt": {
@@ -538,6 +632,13 @@
                   "kind": "scalar"
                 }
               },
+              "emailVerified": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "googleId": {
                 "nullable": true,
                 "type": {
@@ -622,6 +723,24 @@
                 },
                 "to": {
                   "model": "Conversation",
+                  "namespace": "public"
+                }
+              },
+              "emailVerification": {
+                "cardinality": "1:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "id",
+                    "workspaceId"
+                  ],
+                  "targetFields": [
+                    "memberId",
+                    "workspaceId"
+                  ]
+                },
+                "to": {
+                  "model": "EmailVerification",
                   "namespace": "public"
                 }
               },
@@ -757,6 +876,9 @@
                 },
                 "email": {
                   "column": "email"
+                },
+                "emailVerified": {
+                  "column": "emailVerified"
                 },
                 "googleId": {
                   "column": "googleId"
@@ -1840,6 +1962,93 @@
                 }
               ]
             },
+            "emailVerification": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "expiresAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "memberId": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "tokenHash": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "workspaceId": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "onDelete": "cascade",
+                  "source": {
+                    "columns": [
+                      "memberId",
+                      "workspaceId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "emailVerification"
+                  },
+                  "target": {
+                    "columns": [
+                      "id",
+                      "workspaceId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "member"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "expiresAt"
+                  ],
+                  "name": "emailVerification_expiresAt_idx_6b6b8c10",
+                  "prefix": "emailVerification_expiresAt_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "tokenHash"
+                  ]
+                },
+                {
+                  "columns": [
+                    "memberId",
+                    "workspaceId"
+                  ]
+                }
+              ]
+            },
             "invitation": {
               "columns": {
                 "acceptedAt": {
@@ -2013,6 +2222,15 @@
                 "email": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
+                  "nullable": false
+                },
+                "emailVerified": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
                   "nullable": false
                 },
                 "googleId": {
@@ -2901,10 +3119,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "1b8015cbad4c0a125522404c9ca5a1b0cc09addaa2f5779ea605d3d6c874bc5d"
+    "storageHash": "8f24885b07261561803424bab33bc525dac3dbbd15d33a4db84dfe28dcca1590"
   },
   "execution": {
-    "executionHash": "44bfeb1be31db801c1c7edf6ab81b926603835056a051dc399cbf3ae070983d6",
+    "executionHash": "b62d877319b743a2f05811d6818c78e3d1a00c244e2cdc45a9ed3b03e778634b",
     "mutations": {
       "defaults": [
         {
@@ -2916,6 +3134,17 @@
             "column": "id",
             "namespace": "public",
             "table": "conversation"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "uuidv4",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "id",
+            "namespace": "public",
+            "table": "emailVerification"
           }
         },
         {

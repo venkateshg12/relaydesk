@@ -1,0 +1,248 @@
+[
+  {
+    "id": "table.emailVerification",
+    "label": "Create table \"emailVerification\"",
+    "summary": "Creates table \"emailVerification\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "emailVerification"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"emailVerification\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"emailVerification\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"emailVerification\"",
+        "sql": "CREATE TABLE \"public\".\"emailVerification\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"expiresAt\" timestamptz NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"memberId\" uuid NOT NULL,\n  \"tokenHash\" text NOT NULL,\n  \"workspaceId\" uuid NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"emailVerification\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"emailVerification\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.member.emailVerified",
+    "label": "Add column \"emailVerified\" to \"member\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "emailVerified",
+        "table": "member"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"emailVerified\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "member",
+          "emailVerified"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"emailVerified\"",
+        "sql": "ALTER TABLE \"public\".\"member\" ADD COLUMN \"emailVerified\" bool DEFAULT false NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"emailVerified\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "member",
+          "emailVerified"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.emailVerification.emailVerification_tokenHash_key",
+    "label": "Add unique constraint on \"emailVerification\" (tokenHash)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "emailVerification_tokenHash_key",
+        "table": "emailVerification"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"emailVerification_tokenHash_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "emailVerification_tokenHash_key",
+          "public",
+          "\"public\".\"emailVerification\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"emailVerification_tokenHash_key\"",
+        "sql": "ALTER TABLE \"public\".\"emailVerification\" ADD CONSTRAINT \"emailVerification_tokenHash_key\" UNIQUE (\"tokenHash\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"emailVerification_tokenHash_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "emailVerification_tokenHash_key",
+          "public",
+          "\"public\".\"emailVerification\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.emailVerification.emailVerification_memberId_workspaceId_key",
+    "label": "Add unique constraint on \"emailVerification\" (memberId, workspaceId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "emailVerification_memberId_workspaceId_key",
+        "table": "emailVerification"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"emailVerification_memberId_workspaceId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "emailVerification_memberId_workspaceId_key",
+          "public",
+          "\"public\".\"emailVerification\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"emailVerification_memberId_workspaceId_key\"",
+        "sql": "ALTER TABLE \"public\".\"emailVerification\" ADD CONSTRAINT \"emailVerification_memberId_workspaceId_key\" UNIQUE (\"memberId\", \"workspaceId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"emailVerification_memberId_workspaceId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "emailVerification_memberId_workspaceId_key",
+          "public",
+          "\"public\".\"emailVerification\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.emailVerification.emailVerification_expiresAt_idx_6b6b8c10",
+    "label": "Create index \"emailVerification_expiresAt_idx_6b6b8c10\" on \"emailVerification\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "emailVerification_expiresAt_idx_6b6b8c10",
+        "table": "emailVerification"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"emailVerification_expiresAt_idx_6b6b8c10\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"emailVerification_expiresAt_idx_6b6b8c10\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"emailVerification_expiresAt_idx_6b6b8c10\"",
+        "sql": "CREATE INDEX \"emailVerification_expiresAt_idx_6b6b8c10\" ON \"public\".\"emailVerification\" (\"expiresAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"emailVerification_expiresAt_idx_6b6b8c10\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"emailVerification_expiresAt_idx_6b6b8c10\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.emailVerification.emailVerification_memberId_workspaceId_fkey",
+    "label": "Add foreign key \"emailVerification_memberId_workspaceId_fkey\" on \"emailVerification\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "emailVerification_memberId_workspaceId_fkey",
+        "table": "emailVerification"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"emailVerification_memberId_workspaceId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "emailVerification_memberId_workspaceId_fkey",
+          "public",
+          "\"public\".\"emailVerification\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"emailVerification_memberId_workspaceId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"emailVerification\"\nADD CONSTRAINT \"emailVerification_memberId_workspaceId_fkey\"\nFOREIGN KEY (\"memberId\", \"workspaceId\")\nREFERENCES \"public\".\"member\" (\"id\", \"workspaceId\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"emailVerification_memberId_workspaceId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "emailVerification_memberId_workspaceId_fkey",
+          "public",
+          "\"public\".\"emailVerification\""
+        ]
+      }
+    ]
+  }
+]

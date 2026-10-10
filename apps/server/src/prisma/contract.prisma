@@ -73,9 +73,13 @@ model Member {
   avatar       String?
   role         Role   @default(agent)
   status       MemberStatus @default(active)
+  // False until the address is proven: sign-up creates the member unverified and the emailed link flips it. Google
+  // sign-in, accepted invitations, demo workspaces and seed data insert true (the address is already proven).
+  emailVerified Boolean @default(false)
   createdAt    TimestamptzString @default(now())
   updatedAt    TimestamptzString @default(now())
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  emailVerification     EmailVerification?
   sessions              Session[]
   sentInvitations       Invitation[]   @relation("InvitedBy")
   assignedConversations Conversation[] @relation("Assignee")
@@ -119,6 +123,22 @@ model Invitation {
 
   // One invitation row per address per workspace: re-inviting replaces an expired one instead of piling up.
   @@index(expression: "\"workspaceId\", lower(email)", unique: true, name: "invitation_workspace_email_lower")
+}
+
+// The link emailed at sign-up. Only a SHA-256 digest of the token is stored (a leaked row opens nothing), one live row
+// per member (a resend replaces it), consumed by a single conditional delete so a link works once.
+model EmailVerification {
+  id          Uuid   @id @default(uuid())
+  workspaceId Uuid
+  memberId    Uuid
+  tokenHash   String @unique
+  expiresAt   TimestamptzString
+  createdAt   TimestamptzString @default(now())
+  member      Member @relation(fields: [memberId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+
+  // The foreign key already ties the workspace to the member, so unique on the pair is one live link per member.
+  @@unique([memberId, workspaceId])
+  @@index([expiresAt])
 }
 
 model Visitor {
