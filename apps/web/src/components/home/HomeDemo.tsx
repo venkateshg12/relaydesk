@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Wifi, WifiOff } from "lucide-react";
 import { useDemoSession } from "@/hooks/demo/useDemoSession";
 import { useDemoStats } from "@/hooks/demo/useDemoStats";
@@ -81,6 +81,14 @@ function PaneLabel({
 // numbers underneath. It sits inside the hero's frame on the homepage.
 export function HomeDemo() {
   const { state, retry } = useDemoSession();
+  const router = useRouter();
+
+  // Someone with a real account has no use for the landing page: straight to their inbox. (A demo visitor is also
+  // "signed in", but to the demo workspace; `useDemoSession` tells the two apart and only reports `signedIn` for a
+  // real member.) The page stays visible until `/auth/me` answers, so a visitor who isn't signed in never waits.
+  useEffect(() => {
+    if (state.status === "signedIn") router.replace("/inbox");
+  }, [state.status, router]);
   const stats = useDemoStats();
   const { latencyMs, recordSent } = useDeliveryLatency();
 
@@ -122,20 +130,6 @@ export function HomeDemo() {
     [recordSent],
   );
 
-  if (state.status === "signedIn") {
-    return (
-      <div className="mx-auto max-w-md space-y-4 py-16 text-center">
-        <p className="text-[15px] text-muted-foreground">
-          You&apos;re signed in as {state.memberName}, so the demo stays out of
-          your way — it would replace your session.
-        </p>
-        <Button asChild size="lg">
-          <Link href="/inbox">Open your inbox</Link>
-        </Button>
-      </div>
-    );
-  }
-
   if (state.status === "failed") {
     return (
       <div className="mx-auto max-w-md space-y-4 py-16 text-center">
@@ -149,7 +143,7 @@ export function HomeDemo() {
     );
   }
 
-  if (state.status === "starting") {
+  if (state.status === "starting" || state.status === "signedIn") {
     return (
       <div
         aria-busy="true"
@@ -161,8 +155,9 @@ export function HomeDemo() {
           <Skeleton className="h-[580px] rounded-2xl" />
         </div>
         <p className="text-center text-sm text-muted-foreground">
-          Starting your private demo… the first visit after a quiet spell can
-          take up to a minute while the server wakes up.
+          {state.status === "signedIn"
+            ? "Taking you to your inbox…"
+            : "Starting your private demo… the first visit after a quiet spell can take up to a minute while the server wakes up."}
         </p>
       </div>
     );
