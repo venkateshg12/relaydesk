@@ -8,6 +8,9 @@ export const AUTH_LOGIN_PREFIX = "rl:auth:login";
 export const AUTH_LOGIN_ACCOUNT_PREFIX = "rl:auth:login:account";
 export const AUTH_LOGIN_SOURCE_PREFIX = "rl:auth:login:source";
 export const AUTH_SIGNUP_SOURCE_PREFIX = "rl:auth:signup:source";
+export const AUTH_VERIFY_EMAIL_PREFIX = "rl:auth:verify-email";
+export const AUTH_RESEND_VERIFICATION_PREFIX = "rl:auth:resend-verification";
+export const AUTH_RESEND_VERIFICATION_SOURCE_PREFIX = "rl:auth:resend-verification:source";
 
 export const AUTH_REFRESH_PREFIX = "rl:auth:refresh";
 export const AUTH_REFRESH_SOURCE_PREFIX = "rl:auth:refresh:source";

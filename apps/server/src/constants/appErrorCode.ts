@@ -6,5 +6,6 @@ export enum appErrorCode {
     ConversationTaken = "ConversationTaken",
     RateLimited = "RateLimited",
     GmailNotConfigured = "GMAIL_NOT_CONFIGURED",
-    GmailAuthInvalid = "GMAIL_AUTH_INVALID"
+    GmailAuthInvalid = "GMAIL_AUTH_INVALID",
+    EmailNotVerified = "EMAIL_NOT_VERIFIED"
 }

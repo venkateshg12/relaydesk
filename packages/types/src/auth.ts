@@ -32,6 +32,17 @@ export const signUpSchema = credentialSchema.extend({
 });
 export type SignUpSchema = z.infer<typeof signUpSchema>;
 
+// The link in the verification email carries a 256-bit token (64 hex characters); anything else is refused before
+// it reaches the database.
+export const verifyEmailSchema = z.object({
+    token: z.string().trim().regex(/^[0-9a-f]{64}$/, { message: "This verification link is not valid" }),
+    userAgent: z.string().optional(),
+});
+export type VerifyEmailSchema = z.infer<typeof verifyEmailSchema>;
+
+export const resendVerificationSchema = z.object({ email: emailField });
+export type ResendVerificationSchema = z.infer<typeof resendVerificationSchema>;
+
 export const updateProfileSchema = z.object({
     name: z.string().trim().min(1, { message: "Name is required" }).max(255),
 });
