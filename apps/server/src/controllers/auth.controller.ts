@@ -1,14 +1,23 @@
-import { changePasswordSchema, loginInSchema, signUpSchema, updateProfileSchema } from "@repo/types";
+import {
+    changePasswordSchema,
+    loginInSchema,
+    resendVerificationSchema,
+    signUpSchema,
+    updateProfileSchema,
+    verifyEmailSchema
+} from "@repo/types";
 import { CREATED, OK, UNAUTHORIZED } from "../constants/http.js";
 import { ok } from "../utils/api/apiEnvelope.js";
 import {
     changePasswordService,
     loginUser,
     refreshUserAccessToken,
+    resendVerificationEmailService,
     revokeSessions,
     signUpService,
     updateProfileService,
-    getProfileService
+    getProfileService,
+    verifyEmailService
 } from "../services/auth.service.js";
 import {
     clearAuthCookies,
@@ -25,11 +34,31 @@ export const signUpHandler = catchError(async (req, res) => {
         userAgent: req.headers["user-agent"]
     });
 
-    const { member, workspace, accessToken, refreshToken } = await signUpService(request);
+    const { email } = await signUpService(request);
+
+    // No cookies: the person is not signed in until they open the emailed link (`verifyEmailHandler`).
+    return res
+        .status(CREATED)
+        .json(ok({ email, requiresVerification: true, message: "Check your email to finish creating your workspace." }));
+});
+
+export const verifyEmailHandler = catchError(async (req, res) => {
+    const request = verifyEmailSchema.parse({
+        ...req.body,
+        userAgent: req.headers["user-agent"]
+    });
+
+    const { member, workspace, accessToken, refreshToken } = await verifyEmailService(request.token, request.userAgent);
 
     return setAuthCookies({ res, accessToken, refreshToken })
-        .status(CREATED)
-        .json(ok({ member, workspace, message: "Workspace created successfully!" }));
+        .status(OK)
+        .json(ok({ member, workspace, message: "Email verified!" }));
+});
+
+export const resendVerificationHandler = catchError(async (req, res) => {
+    const { email } = resendVerificationSchema.parse(req.body);
+
+    return res.status(OK).json(ok(await resendVerificationEmailService(email)));
 });
 
 export const loginHandler = catchError(async (req, res) => {
