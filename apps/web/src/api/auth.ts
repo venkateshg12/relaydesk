@@ -21,6 +21,13 @@ export interface AuthSuccessData {
   message?: string;
 }
 
+// Sign-up signs nobody in: it answers that a verification link was emailed (see `verifyEmailApi`).
+export interface SignUpPendingData {
+  email: string;
+  requiresVerification: true;
+  message?: string;
+}
+
 export interface SessionItem {
   id: string;
   userAgent?: string | null;
@@ -30,10 +37,32 @@ export interface SessionItem {
 
 export const signUpApi = async (
   data: SignUpSchema,
-): Promise<ApiResponse<AuthSuccessData>> => {
-  const res = await API.post<ApiResponse<AuthSuccessData>>(
+): Promise<ApiResponse<SignUpPendingData>> => {
+  const res = await API.post<ApiResponse<SignUpPendingData>>(
     "/auth/signup",
     data,
+  );
+  return res.data;
+};
+
+// POST, not GET: mail scanners open the links in an email, and a GET would let them use up the single-use token.
+// Success also signs the person in (the server sets the cookies).
+export const verifyEmailApi = async (
+  token: string,
+): Promise<ApiResponse<AuthSuccessData>> => {
+  const res = await API.post<ApiResponse<AuthSuccessData>>(
+    "/auth/verify-email",
+    { token },
+  );
+  return res.data;
+};
+
+export const resendVerificationApi = async (
+  email: string,
+): Promise<ApiResponse<{ message: string }>> => {
+  const res = await API.post<ApiResponse<{ message: string }>>(
+    "/auth/verify-email/resend",
+    { email },
   );
   return res.data;
 };
